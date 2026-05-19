@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "builds": [
+    { "src": "api/cartelera.js", "use": "@vercel/node" },
+    { "src": "index.html", "use": "@vercel/static" },
+    { "src": "logo-blanco-celeste.png", "use": "@vercel/static" }
+  ],
+  "routes": [
+    { "src": "/api/cartelera", "dest": "api/cartelera.js" },
+    { "src": "/(.*)", "dest": "/$1" }
+  ]
+}
