@@ -3,318 +3,128 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cartelera de Eventos - Universidad Gabriela Mistral</title>
+    <title>Cartelera Digital UGM</title>
     <style>
-        :root {
-            --ugm-blue: #002f6c;
-            --ugm-yellow: #ffc72c;
-            --text-dark: #333333;
-            --bg-light: #f4f6f9;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-
-        body {
-            background-color: var(--bg-light);
-            color: var(--text-dark);
-            overflow: hidden;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-
-        header {
-            background-color: var(--ugm-blue);
-            color: white;
-            padding: 20px 40px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 5px solid var(--ugm-yellow);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        }
-
-        header h1 {
-            font-size: 2.5rem;
-            font-weight: 700;
-            letter-spacing: -0.5px;
-        }
-
-        .clock-container {
-            font-size: 2.2rem;
-            font-weight: 600;
-            background: rgba(255,255,255,0.1);
-            padding: 5px 20px;
-            border-radius: 8px;
-            border-left: 4px solid var(--ugm-yellow);
-        }
-
-        main {
-            flex: 1;
-            overflow: hidden;
-            position: relative;
-            padding: 20px 40px 100px 40px; /* Espacio abajo para el footer fijo */
-        }
-
-        #scroll-container {
-            height: 100%;
-            overflow-y: hidden;
-            position: relative;
-        }
-
-        #events-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 25px;
-            position: absolute;
-            width: 100%;
-            top: 0;
-            transition: transform 0.5s ease-in-out;
-        }
-
-        .event-card {
-            background: white;
-            border-radius: 12px;
-            padding: 25px;
-            box-shadow: 0 6px 18px rgba(0,0,0,0.06);
-            border-left: 8px solid var(--ugm-blue);
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            min-height: 180px;
-        }
-
-        .event-card.highlight {
-            border-left-color: var(--ugm-yellow);
-            background: linear-gradient(to right, #fffdf3, #ffffff);
-        }
-
-        .event-title {
-            font-size: 1.8rem;
-            color: var(--ugm-blue);
-            font-weight: 700;
-            margin-bottom: 15px;
-            line-height: 1.3;
-        }
-
-        .event-details {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-top: 1px solid #eee;
-            padding-top: 15px;
-        }
-
-        .detail-item {
-            display: flex;
-            align-items: center;
-            font-size: 1.3rem;
-            color: #555;
-        }
-
-        .detail-item strong {
-            color: var(--text-dark);
-            margin-right: 5px;
-        }
-
-        .status-badge {
-            background-color: #e3f2fd;
-            color: #0d47a1;
-            padding: 6px 15px;
-            border-radius: 20px;
-            font-weight: 600;
-            font-size: 1.1rem;
-        }
-
-        .status-badge.now {
-            background-color: #fff3e0;
-            color: #e65100;
-            border: 1px solid var(--ugm-yellow);
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.6; }
-            100% { opacity: 1; }
-        }
-
-        footer {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            background-color: var(--ugm-blue);
-            padding: 15px 40px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            border-top: 4px solid var(--ugm-yellow);
-            z-index: 100;
-        }
-
-        footer img {
-            height: 55px;
-            filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.2));
-        }
-
-        .message-screen {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100%;
-            font-size: 2rem;
-            color: #666;
-            font-weight: 600;
-            text-align: center;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .spinner {
-            border: 6px solid #f3f3f3;
-            border-top: 6px solid var(--ugm-blue);
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
+        body { background: #020617; color: #f8fafc; padding: 40px; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        header { display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid #3b82f6; padding-bottom: 20px; margin-bottom: 30px; }
+        h1 { font-size: 3rem; text-transform: uppercase; color: #fff; }
+        #reloj { font-size: 3rem; font-weight: bold; color: #94a3b8; }
+        #pantalla { flex-grow: 1; overflow-y: auto; padding-right: 10px; scroll-behavior: smooth; }
+        #pantalla::-webkit-scrollbar { display: none; }
+        .evento-card { background: #1e293b; padding: 25px; margin-bottom: 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; }
+        .hoy-card { border-left: 10px solid #3b82f6; }
+        .semana-card { border-left: 10px solid #f59e0b; }
+        @keyframes deslizarEntrada { 0% { opacity: 0; transform: translateX(-30px); } 100% { opacity: 1; transform: translateX(0); } }
+        .info-principal { font-size: 2.5rem; font-weight: bold; flex-grow: 1; }
+        .badge-info { display: flex; flex-direction: column; align-items: flex-start; margin-right: 40px; min-width: 140px; }
+        .fecha-tag { color: #64748b; font-size: 1.2rem; font-weight: bold; text-transform: uppercase; }
+        .hora-tag { color: #10b981; font-size: 2.2rem; font-weight: bold; }
+        .sala-tag { background: #f59e0b; color: #000000; padding: 8px 20px; border-radius: 8px; font-weight: 900; font-size: 1.8rem; min-width: 150px; text-align: center; }
+        footer { margin-top: auto; text-align: center; padding-top: 15px; }
+        .logo-ugm { max-width: 260px; filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.3)); }
+        .vacio { text-align: center; font-size: 2rem; color: #475569; margin-top: 50px; }
     </style>
 </head>
 <body>
 
     <header>
-        <h1>EVENTOS Y ACTIVIDADES UGM</h1>
-        <div class="clock-container" id="live-clock">00:00:00</div>
+        <h1 id="titulo-cartelera">Cargando Cartelera...</h1>
+        <div id="reloj">00:00:00</div>
     </header>
 
-    <main>
-        <div id="scroll-container">
-            <div class="message-screen" id="loading-screen">
-                <div class="spinner"></div>
-                Conectando a SharePoint...
-            </div>
-            <div id="events-grid" style="display: none;"></div>
+    <div id="pantalla">
         </div>
-    </main>
 
     <footer>
-        <img src="logo-ugm.png" alt="Logo Universidad Gabriela Mistral">
+        <img class="logo-ugm" src="../logo-blanco-celeste.png" alt="Logo UGM">
     </footer>
 
     <script>
-        // Actualizar Reloj en Vivo
-        function updateClock() {
-            const now = new Date();
-            const timeString = now.toLocaleTimeString('es-CL', { hour12: false });
-            document.getElementById('live-clock').textContent = timeString;
+        // Reloj integrado
+        function moverReloj() {
+            const momento = new Date();
+            document.getElementById('reloj').textContent = momento.toLocaleTimeString('es-CL', { hour12: false });
         }
-        setInterval(updateClock, 1000);
-        updateClock();
+        setInterval(moverReloj, 1000);
+        moverReloj();
 
-        // Cargar datos desde la API (Función Serverless)
-        async function fetchEvents() {
+        let vistaActual = "HOY";
+
+        async function renderizarCartelera() {
             try {
-                // LLAMADA RELATIVA NATIVA (Funciona directo en el entorno del hosting)
-                const respuesta = await fetch('/.netlify/functions/cartelera?t=' + new Date().getTime());
-                if (!respuesta.ok) throw new Error('Error al obtener datos del servidor');
-                
-                const eventos = await respuesta.map ? await respuesta.json() : respuesta;
-                renderEvents(eventos);
+                const ahora = new Date();
+                const pantalla = document.getElementById('pantalla');
+                const titulo = document.getElementById('titulo-cartelera');
+
+                // LÍNEA 76 CORREGIDA: Apunta al Netlify vivo desde afuera
+                const respuesta = await fetch('https://caleugm.netlify.app/.netlify/functions/cartelera?t=' + new Date().getTime());
+                const items = await respuesta.json();
+
+                let eventosFiltrados = [];
+                const opcionesChile = { timeZone: 'America/Santiago', year: 'numeric', month: 'numeric', day: 'numeric' };
+                const hoyChileString = ahora.toLocaleDateString('es-CL', opcionesChile);
+
+                items.forEach(item => {
+                    const fields = item.fields || {};
+                    if (fields.EventDate) {
+                        const fechaEvento = new Date(fields.EventDate);
+                        
+                        // LÍNEA 90 CORREGIDA: Parche de la sala UGM
+                        const salaNombre = fields["U_x002e_G_x002e_M_x0020_Sala"] || fields.Location || "Por definir";
+
+                        const ev = {
+                            asunto: fields.Title || 'Evento sin título',
+                            sala: salaNombre,
+                            hora_inicio: fechaEvento
+                        };
+
+                        const evChileString = fechaEvento.toLocaleDateString('es-CL', opcionesChile);
+
+                        if (vistaActual === "HOY") {
+                            if (evChileString === hoyChileString) {
+                                eventosFiltrados.push(ev);
+                            }
+                        }
+                    }
+                });
+
+                // Cambiar el título superior según el estado
+                titulo.textContent = vistaActual === "HOY" ? "Eventos de Hoy" : "Eventos de la Semana";
+
+                if (eventosFiltrados.length === 0) {
+                    pantalla.innerHTML = `<div class="vacio">No hay eventos programados para hoy</div>`;
+                    return;
+                }
+
+                pantalla.innerHTML = "";
+                eventosFiltrados.forEach(ev => {
+                    const horaTexto = ev.hora_inicio.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false });
+                    const fechaTexto = ev.hora_inicio.toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric' });
+
+                    const card = document.createElement('div');
+                    card.className = `evento-card ${vistaActual === "HOY" ? 'hoy-card' : 'semana-card'}`;
+                    
+                    card.innerHTML = `
+                        <div class="badge-info">
+                            <span class="fecha-tag">${fechaTexto}</span>
+                            <span class="hora-tag">${horaTexto}</span>
+                        </div>
+                        <div class="info-principal">${ev.asunto}</div>
+                        <div class="sala-tag">${ev.sala}</div>
+                    `;
+                    pantalla.appendChild(card);
+                });
+
             } catch (error) {
                 console.error(error);
-                document.getElementById('loading-screen').innerHTML = `
-                    <span style="color: #d32f2f; font-size: 3rem;">⚠️</span>
-                    <br>ERROR DE CONEXIÓN<br>
-                    <span style="font-size: 1.2rem; color: #888;">No se pudo sincronizar la cartelera. Reintentando...</span>
-                `;
+                document.getElementById('pantalla').innerHTML = `<div class="vacio" style="color: #ef4444;">⚠️ Error al sincronizar con SharePoint</div>`;
             }
         }
 
-        // Dibujar los eventos en las tarjetas de la grilla de dos columnas
-        function renderEvents(events) {
-            const grid = document.getElementById('events-grid');
-            const loading = document.getElementById('loading-screen');
-            
-            if (!events || events.length === 0) {
-                loading.innerHTML = "No hay eventos programados para el día de hoy.";
-                loading.style.display = "flex";
-                grid.style.display = "none";
-                return;
-            }
-
-            loading.style.display = "none";
-            grid.innerHTML = '';
-            grid.style.display = "grid";
-
-            events.forEach(ev => {
-                const fields = ev.fields || ev;
-                
-                // PARCHE QUIRÚRGICO: Lee primero la columna codificada de la UGM, si no existe usa Location
-                const salaNombre = fields["U_x002e_G_x002e_M_x0020_Sala"] || fields.Location || "Por definir";
-
-                const card = document.createElement('div');
-                card.className = `event-card ${fields.Destacado ? 'highlight' : ''}`;
-
-                card.innerHTML = `
-                    <div class="event-title">${fields.Title || fields.Title0 || 'Evento sin título'}</div>
-                    <div class="event-details">
-                        <div class="detail-item"><strong>Horario:</strong> ${fields.Horario || 'Por confirmar'}</div>
-                        <div class="detail-item"><strong>Ubicación:</strong> ${salaNombre}</div>
-                        <div class="status-badge ${fields.EnCurso ? 'now' : ''}">${fields.EnCurso ? 'En Curso' : 'Programado'}</div>
-                    </div>
-                `;
-                grid.appendChild(card);
-            });
-
-            // Iniciar el auto-scroll suave de las páginas
-            setupAutoScroll();
-        }
-
-        // Lógica de Auto-Scroll Vertical por Bloques de Pantalla Completa
-        let scrollInterval;
-        function setupAutoScroll() {
-            if (scrollInterval) clearInterval(scrollInterval);
-            
-            const grid = document.getElementById('events-grid');
-            const container = document.getElementById('scroll-container');
-            
-            let currentTop = 0;
-            const containerHeight = container.clientHeight;
-
-            scrollInterval = setInterval(() => {
-                const gridHeight = grid.scrollHeight;
-
-                // Si todo el contenido cabe en la pantalla actual, no es necesario hacer scroll
-                if (gridHeight <= containerHeight) return;
-
-                currentTop += containerHeight - 20; // Avanza casi una pantalla completa restando un pequeño margen
-
-                if (currentTop >= gridHeight) {
-                    // Si llegó al final, vuelve arriba instantáneamente tras una breve pausa
-                    setTimeout(() => {
-                        currentTop = 0;
-                        grid.style.transform = `translateY(0px)`;
-                    }, 2000);
-                } else {
-                    grid.style.transform = `translateY(-${currentTop}px)`;
-                }
-            }, 8000); // Cambia de pantalla cada 8 segundos
-        }
-
-        // Refrescar los datos completos desde SharePoint cada 2 minutos en segundo plano
-        setInterval(fetchEvents, 120000);
-        fetchEvents();
+        // Sistema de rotación y carga
+        setInterval(renderizarCartelera, 30000);
+        renderizarCartelera();
     </script>
 </body>
 </html>
