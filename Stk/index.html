@@ -252,36 +252,29 @@
 
                     const fechaCruda = f["EventDate"] || f["EventDateTime"] || f["StartDate"] || f["Modified"] || "";
                     
-                    if (fechaCruda) {
-                        const d = new Date(fechaCruda);
-                        if (!isNaN(d.getTime())) {
-                            // 1. Adelantamos el bloque base de horas que manda Microsoft Graph
-                            const fechaCorregida = new Date(d.getTime() + 14400000); // +4 horas base
-                            
-                            // 2. FILTRO INTELIGENTE DE MINUTOS (Redondeo al bloque horario superior)
-                            // Si los minutos marcan entre :35 y :59 por culpa del desfase de la API, redondeamos a la hora siguiente en punto (:00)
-                            let minutosReales = fechaCorregida.getMinutes();
-                            let horasReales = fechaCorregida.getHours();
-                            
-                            if (minutosReales >= 35) {
-                                minutosReales = 0;
-                                horasReales = (horasReales + 1) % 24;
-                            } else if (minutosReales > 0 && minutosReales < 15) {
-                                // Si marca un residuo pequeño (como :04), lo planchamos a la hora en punto (:00)
-                                minutosReales = 0;
-                            }
-
-                            const yyyy = fechaCorregida.getFullYear();
-                            const mm = String(fechaCorregida.getMonth() + 1).padStart(2, '0');
-                            const dd = String(fechaCorregida.getDate()).padStart(2, '0');
-                            fechaTexto = `${yyyy}-${mm}-${dd}`;
-                            
-                            const hh = String(horasReales).padStart(2, '0');
-                            const min = String(minutosReales).padStart(2, '0');
-                            horaTexto = `${hh}:${min}`;
-                            
+                    if (fechaCruda && typeof fechaCruda === 'string') {
+                        // AJUSTE DE INGENIERÍA: Procesamos la hora como texto crudo omitiendo el objeto Date mfeante split
+                        const partes = fechaCruda.split('T');
+                        if (partes[0] && partes[1]) {
+                            fechaTexto = partes[0]; 
                             esHoy = fechaTexto === hoyChile;
-                            timestamp = new Date(yyyy, fechaCorregida.getMonth(), dd, horasReales, minutosReales).getTime();
+                            
+                            const subPartesHora = partes[1].split(':');
+                            let horaOriginal = parseInt(subPartesHora[0], 10);
+                            let minutosOriginales = subPartesHora[1] || "00";
+
+                            if (!isNaN(horaOriginal)) {
+                                // Sumamos el desfase exacto de 4 horas al texto puro de la hora de la API
+                                let horaAjustada = (horaOriginal + 4) % 24;
+                                
+                                // Planchamos a 00 los minutos si vienen con decimales flotantes residuales de SharePoint
+                                if (parseInt(minutosOriginales, 10) > 0 && parseInt(minutosOriginales, 10) < 10) {
+                                    minutosOriginales = "00";
+                                }
+                                
+                                horaTexto = `${String(horaAjustada).padStart(2, '0')}:${minutosOriginales}`;
+                                timestamp = new Date(fechaTexto + 'T' + horaTexto + ':00').getTime();
+                            }
                         }
                     }
 
