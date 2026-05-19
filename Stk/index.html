@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Cartelera Digital UGM</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
+        body { background: #020617; color: #f8fafc; padding: 40px; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        header { display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid #3b82f6; padding-bottom: 20px; margin-bottom: 30px; }
+        h1 { font-size: 3rem; text-transform: uppercase; color: #fff; }
+        #reloj { font-size: 3rem; font-weight: bold; color: #94a3b8; }
+        #pantalla { flex-grow: 1; overflow-y: auto; padding-right: 10px; scroll-behavior: smooth; }
+        #pantalla::-webkit-scrollbar { display: none; }
+        .evento-card { background: #1e293b; padding: 25px; margin-bottom: 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; animation: deslizarEntrada 0.6s ease-out forwards; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4); }
+        .hoy-card { border-left: 10px solid #3b82f6; } 
+        .semana-card { border-left: 10px solid #f59e0b; } 
+        @keyframes deslizarEntrada { 0% { opacity: 0; transform: translateX(-30px); } 100% { opacity: 1; transform: translateX(0); } }
+        .info-principal { font-size: 2.5rem; font-weight: bold; flex-grow: 1; }
+        .badge-info { display: flex; flex-direction: column; align-items: flex-start; margin-right: 40px; min-width: 140px; }
+        .fecha-tag { color: #64748b; font-size: 1.2rem; font-weight: bold; text-transform: uppercase; }
+        .hora-tag { color: #10b981; font-size: 2.2rem; font-weight: bold; }
+        .sala-tag { background: #f59e0b; color: #000000; padding: 8px 20px; border-radius: 8px; font-weight: 900; font-size: 1.8rem; min-width: 150px; text-align: center; }
+        footer { margin-top: auto; text-align: center; padding-top: 15px; }
+        .logo-ugm { max-width: 260px; filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.3)); }
+        .vacio { text-align: center; font-size: 2rem; color: #475569; margin-top: 50px; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1 id="titulo-cartelera">Conectando a SharePoint...</h1>
+        <div id="reloj">00:00:00</div>
+    </header>
+
+    <div id="pantalla"></div>
+
+    <footer>
+        <img src="logo-blanco-celeste.png" alt="Logo UGM" class="logo-ugm">
+    </footer>
+
+    <script>
+        const TIEMPO_ROTACION = 20000; 
+        let vistaActual = "HOY"; 
+        let scrollInterval = null;
+
+        function actualizarReloj() {
+            document.getElementById('reloj').innerText = new Date().toLocaleTimeString('es-CL', { timeZone: 'America/Santiago' });
+        }
+        setInterval(actualizarReloj, 1000);
+
+        function activarAutoScroll() {
+            const contenedor = document.getElementById('pantalla');
+            if (scrollInterval) clearInterval(scrollInterval);
+            contenedor.scrollTop = 0;
+
+            setTimeout(() => {
+                if (contenedor.scrollHeight > contenedor.clientHeight) {
+                    scrollInterval = setInterval(() => {
+                        contenedor.scrollTop += 1;
+                        if (contenedor.scrollTop + contenedor.clientHeight >= contenedor.scrollHeight - 1) {
+                            clearInterval(scrollInterval);
+                            setTimeout(() => { activarAutoScroll(); }, 3000);
+                        }
+                    }, 30);
+                }
+            }, 1000);
+        }
+
+        async function renderizarCartelera() {
+            try {
+                const ahora = new Date();
+                const pantalla = document.getElementById('pantalla');
+                const titulo = document.getElementById('titulo-cartelera');
+                
+                // Llama al endpoint de Netlify rompiendo caché con timestamp
+                const respuesta = await fetch('/.netlify/functions/cartelera?t=' + new Date().getTime());
+                const items = await respuesta.json();
+
+                let eventosFiltrados = [];
+                const opcionesChile = { timeZone: 'America/Santiago', year: 'numeric', month: 'numeric', day: 'numeric' };
+                const hoyChileString = ahora.toLocaleDateString('es-CL', opcionesChile);
+
+                items.forEach(item => {
+                    const fields = item.fields || {};
+                    if (fields.EventDate) {
+                        const fechaEvento = new Date(fields.EventDate);
+
+                        const ev = {
+                            asunto: fields.Title,
+                            sala: fields.Location || "Por definir",
+                            hora_inicio: fechaEvento
+                        };
+
+                        const evChileString = fechaEvento.toLocaleDateString('es-CL', opcionesChile);
+
+                        if (vistaActual === "HOY") {
+                            if (evChileString === hoyChileString) {
+                                eventosFiltrados.push(ev);
+                            }
+                        } else {
+                            if (fechaEvento > ahora && evChileString !== hoyChileString) {
+                                eventosFiltrados.push(ev);
+                            }
+                        }
+                    }
+                });
+
+                eventosFiltrados.sort((a, b) => a.hora_inicio - b.hora_inicio);
+
+                if (vistaActual === "HOY") {
+                    titulo.innerText = "Eventos de Hoy";
+                    titulo.style.color = "#3b82f6";
+                } else {
+                    titulo.innerText = "Próximos Días";
+                    titulo.style.color = "#f59e0b";
+                }
+
+                if (eventosFiltrados.length === 0) {
+                    pantalla.innerHTML = `<div class='vacio'>No hay actividades agendadas para ${vistaActual.toLowerCase()}.</div>`;
+                    if (scrollInterval) clearInterval(scrollInterval);
+                    return;
+                }
+
+                pantalla.innerHTML = "";
+                eventosFiltrados.forEach((ev, index) => {
+                    // Formateo de hora en base a zona Santiago para acoplar con la tele
+                    const hora = ev.hora_inicio.toLocaleTimeString('es-CL', { timeZone: 'America/Santiago', hour: '2-digit', minute: '2-digit' });
+                    
+                    let textoDia = "Hoy";
+                    if (vistaActual !== "HOY") {
+                        textoDia = ev.hora_inicio.toLocaleDateString('es-CL', { timeZone: 'America/Santiago', weekday: 'short', day: '2-digit', month: '2-digit' });
+                    }
+
+                    const claseCard = (vistaActual === "HOY") ? "evento-card hoy-card" : "evento-card semana-card";
+                    const card = document.createElement('div');
+                    card.className = claseCard;
+                    card.style.animationDelay = `${index * 0.08}s`;
+                    
+                    card.innerHTML = `
+                        <div class="badge-info">
+                            <span class="fecha-tag">${textoDia}</span>
+                            <span class="hora-tag">${hora}</span>
+                        </div>
+                        <div class="info-principal">${ev.asunto}</div>
+                        <div class="sala-tag">${ev.sala}</div>
+                    `;
+                    pantalla.appendChild(card);
+                });
+
+                activarAutoScroll();
+
+            } catch (err) {
+                console.error("Error en producción:", err.message);
+                document.getElementById('titulo-cartelera').innerText = "Error de Conexión";
+            }
+        }
+
+        function alternarVistas() {
+            vistaActual = (vistaActual === "HOY") ? "SEMANA" : "HOY";
+            renderizarCartelera();
+        }
+
+        setInterval(alternarVistas, TIEMPO_ROTACION);
+        setInterval(renderizarCartelera, 60000);
+
+        actualizarReloj();
+        renderizarCartelera();
+    </script>
+</body>
+</html>
