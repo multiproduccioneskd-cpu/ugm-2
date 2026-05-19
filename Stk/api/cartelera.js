@@ -29,8 +29,13 @@ export default async function handler(req, res) {
         const tokenData = await tokenRes.json();
         const accessToken = tokenData.access_token;
 
-        const siteIdCrudo = "ugmchile.sharepoint.com,0aaa32cc-4ad1-4d99-9ee6-78ede7cfff66,a582523d-6b22-417e-bf2b-5b8b6e2fe62f";
-        const graphUrl = `https://graph.microsoft.com/v1.0/sites/${siteIdCrudo}/lists/${LIST_ID}/items?expand=fields&$top=100`;
+        // Desarmamos el SITE_ID en los 3 componentes limpios que exige Microsoft Graph de forma nativa
+        const hostName = "ugmchile.sharepoint.com";
+        const siteCollectionId = "0aaa32cc-4ad1-4d99-9ee6-78ede7cfff66";
+        const subSiteId = "a582523d-6b22-417e-bf2b-5b8b6e2fe62f";
+
+        // Armamos la URL oficial usando la estructura segmentada de Microsoft (Anti-Bugs)
+        const graphUrl = `https://graph.microsoft.com/v1.0/sites/${hostName},${siteCollectionId},${subSiteId}/lists/${LIST_ID}/items?expand=fields&$top=100`;
 
         const graphRes = await fetch(graphUrl, {
             method: 'GET',
