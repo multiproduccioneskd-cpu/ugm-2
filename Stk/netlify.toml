@@ -1,5 +1,0 @@
-[build]
-  command = "# No build command needed"
-
-[functions]
-  directory = "functions"
