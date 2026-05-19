@@ -227,7 +227,7 @@
                 const datosProcesados = items.map(item => {
                     const f = item.fields || {};
                     
-                    // 1. RASTREADOR DE UBICACIÓN DINÁMICA
+                    // 1. RASTREADOR DE UBICACIÓN
                     let salaDetected = "Por definir";
                     const posiblesColumnasSala = ["Sala", "Ubicacion", "Location", "U_G_M_Sala", "Ubicaci_x00f3_n"];
                     
@@ -238,7 +238,6 @@
                         }
                     }
                     if (salaDetected === "Por definir") {
-                        // Si no la pilla por nombre, busca en todo el objeto un texto que hable de lugares comunes
                         for (let key in f) {
                             if (typeof f[key] === 'string' && (f[key].includes("Auditorio") || f[key].includes("Gimnasio") || f[key].includes("Sala"))) {
                                 salaDetected = f[key];
@@ -247,7 +246,7 @@
                         }
                     }
 
-                    // 2. DETECTOR Y FORMATEADOR DE FECHA REAL (CON CORRECCIÓN DE DESFASE)
+                    // 2. CORRECTOR DE HORA (RESTAMOS LAS 4 HORAS DEL DESFASE UTC DE SHOREPOINT)
                     let fechaTexto = "Próximamente";
                     let horaTexto = "00:00";
                     let timestamp = 9999999999999;
@@ -258,15 +257,23 @@
                     if (fechaCruda) {
                         const d = new Date(fechaCruda);
                         if (!isNaN(d.getTime())) {
-                            // Ajustamos el desfase horario de SharePoint de forma limpia para que vuelva a marcar tus 20:00 reales
-                            const localDate = new Date(d.getTime() - (d.getTimezoneOffset() * 60000));
-                            const isoString = localDate.toISOString(); // YYYY-MM-DDTHH:MM:SS
+                            // Le restamos 4 horas fijas para devolver el reloj a la hora continental de Chile
+                            const horasEnMili = 4 * 60 * 60 * 60 * 1000; 
+                            const fechaCorregida = new Date(d.getTime() - 14400000); // 14400000ms = 4 horas
                             
-                            const partes = isoString.split('T');
-                            fechaTexto = partes[0];
-                            horaTexto = partes[1] ? partes[1].substring(0, 5) : "00:00";
+                            // Extraemos año, mes y día limpios
+                            const yyyy = fechaCorregida.getFullYear();
+                            const mm = String(fechaCorregida.getMonth() + 1).padStart(2, '0');
+                            const dd = String(fechaCorregida.getDate()).padStart(2, '0');
+                            fechaTexto = `${yyyy}-${mm}-${dd}`;
+                            
+                            // Extraemos hora y minutos limpios
+                            const hh = String(fechaCorregida.getHours()).padStart(2, '0');
+                            const min = String(fechaCorregida.getMinutes()).padStart(2, '0');
+                            horaTexto = `${hh}:${min}`;
+                            
                             esHoy = fechaTexto === hoyChile;
-                            timestamp = d.getTime();
+                            timestamp = fechaCorregida.getTime();
                         }
                     }
 
@@ -293,10 +300,14 @@
                     let etiquetaDia = "Hoy";
                     
                     if (!ev.esHoy && ev.fechaStr !== "Próximamente") {
-                        const d = new Date(ev.fechaStr + 'T12:00:00');
-                        const nombreDia = d.toLocaleDateString('es-CL', { weekday: 'short' }).replace('.', '');
-                        const numDia = d.getDate();
-                        etiquetaDia = `${nombreDia.charAt(0).toUpperCase() + nombreDia.slice(1)} ${numDia}`;
+                        try {
+                            const d = new Date(ev.fechaStr + 'T12:00:00');
+                            const nombreDia = d.toLocaleDateString('es-CL', { weekday: 'short' }).replace('.', '');
+                            const numDia = d.getDate();
+                            etiquetaDia = `${nombreDia.charAt(0).toUpperCase() + nombreDia.slice(1)} ${numDia}`;
+                        } catch (e) {
+                            etiquetaDia = "Próximo";
+                        }
                     }
 
                     const card = document.createElement('div');
@@ -322,6 +333,7 @@
             }
         }
 
+        // Carga inicial y refresco cada 30 segundos
         cargarCartelera();
         setInterval(cargarCartelera, 30000);
     </script>
