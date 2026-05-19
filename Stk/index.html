@@ -215,35 +215,64 @@
                 const response = await fetch('https://ugm-2.vercel.app/api/cartelera');
                 if (!response.ok) throw new Error('Error API');
                 
-                const eventos = await response.json();
+                const items = await response.json();
                 
-                if (!eventos || eventos.length === 0) {
+                if (!items || items.length === 0) {
                     container.innerHTML = '<div class="no-events">No hay eventos registrados en SharePoint</div>';
                     return;
                 }
 
                 const hoyChile = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
 
-                const datosProcesados = eventos.map(ev => {
-                    let fechaTexto = "Próximamente";
-                    let horaTexto = "20:00"; // Fallback por defecto si no hay datos
-                    let esHoy = false;
-                    let timestamp = 9999999999999;
-
-                    if (ev.fecha) {
-                        // Extractor de texto puro para evitar que la zona horaria mutile la visualización
-                        const partes = ev.fecha.split('T');
-                        fechaTexto = partes[0];
-                        if (partes[1]) {
-                            horaTexto = partes[1].substring(0, 5);
+                const datosProcesados = items.map(item => {
+                    const f = item.fields || {};
+                    
+                    // 1. RASTREADOR DE UBICACIÓN DINÁMICA
+                    let salaDetected = "Por definir";
+                    const posiblesColumnasSala = ["Sala", "Ubicacion", "Location", "U_G_M_Sala", "Ubicaci_x00f3_n"];
+                    
+                    for (let col of posiblesColumnasSala) {
+                        if (f[col]) {
+                            salaDetected = f[col];
+                            break;
                         }
-                        esHoy = fechaTexto === hoyChile;
-                        timestamp = new Date(ev.fecha).getTime();
+                    }
+                    if (salaDetected === "Por definir") {
+                        // Si no la pilla por nombre, busca en todo el objeto un texto que hable de lugares comunes
+                        for (let key in f) {
+                            if (typeof f[key] === 'string' && (f[key].includes("Auditorio") || f[key].includes("Gimnasio") || f[key].includes("Sala"))) {
+                                salaDetected = f[key];
+                                break;
+                            }
+                        }
+                    }
+
+                    // 2. DETECTOR Y FORMATEADOR DE FECHA REAL (CON CORRECCIÓN DE DESFASE)
+                    let fechaTexto = "Próximamente";
+                    let horaTexto = "00:00";
+                    let timestamp = 9999999999999;
+                    let esHoy = false;
+
+                    const fechaCruda = f["EventDate"] || f["EventDateTime"] || f["StartDate"] || f["Modified"] || "";
+                    
+                    if (fechaCruda) {
+                        const d = new Date(fechaCruda);
+                        if (!isNaN(d.getTime())) {
+                            // Ajustamos el desfase horario de SharePoint de forma limpia para que vuelva a marcar tus 20:00 reales
+                            const localDate = new Date(d.getTime() - (d.getTimezoneOffset() * 60000));
+                            const isoString = localDate.toISOString(); // YYYY-MM-DDTHH:MM:SS
+                            
+                            const partes = isoString.split('T');
+                            fechaTexto = partes[0];
+                            horaTexto = partes[1] ? partes[1].substring(0, 5) : "00:00";
+                            esHoy = fechaTexto === hoyChile;
+                            timestamp = d.getTime();
+                        }
                     }
 
                     return {
-                        title: ev.title || "Evento sin título",
-                        sala: ev.sala || "Por definir",
+                        title: f.Title || f.LinkTitle || "Evento sin título",
+                        sala: salaDetected,
                         hora: horaTexto,
                         fechaStr: fechaTexto,
                         esHoy: esHoy,
@@ -251,7 +280,7 @@
                     };
                 });
 
-                // Orden cronológico estricto: Hoy arriba, días siguientes abajo
+                // Orden cronológico: Hoy arriba, días siguientes abajo
                 datosProcesados.sort((a, b) => {
                     if (a.esHoy && !b.esHoy) return -1;
                     if (!a.esHoy && b.esHoy) return 1;
@@ -264,14 +293,10 @@
                     let etiquetaDia = "Hoy";
                     
                     if (!ev.esHoy && ev.fechaStr !== "Próximamente") {
-                        try {
-                            const d = new Date(ev.fechaStr + 'T12:00:00');
-                            const nombreDia = d.toLocaleDateString('es-CL', { weekday: 'short' }).replace('.', '');
-                            const numDia = d.getDate();
-                            etiquetaDia = `${nombreDia.charAt(0).toUpperCase() + nombreDia.slice(1)} ${numDia}`;
-                        } catch (e) {
-                            etiquetaDia = "Próximo";
-                        }
+                        const d = new Date(ev.fechaStr + 'T12:00:00');
+                        const nombreDia = d.toLocaleDateString('es-CL', { weekday: 'short' }).replace('.', '');
+                        const numDia = d.getDate();
+                        etiquetaDia = `${nombreDia.charAt(0).toUpperCase() + nombreDia.slice(1)} ${numDia}`;
                     }
 
                     const card = document.createElement('div');
