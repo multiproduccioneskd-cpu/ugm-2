@@ -30,7 +30,7 @@ export default async function handler(req, res) {
         const tokenData = await tokenRes.json();
         const accessToken = tokenData.access_token;
 
-        // 2. Consulta directa a la lista calen de la UGM
+        // 2. Consulta a la lista de SharePoint
         const graphUrl = `https://graph.microsoft.com/v1.0/sites/ugmchile.sharepoint.com:/sites/Calen:/lists/lista%20calen/items?expand=fields&$top=100`;
 
         const graphRes = await fetch(graphUrl, {
@@ -49,31 +49,32 @@ export default async function handler(req, res) {
         const graphData = await graphRes.json();
         const rawItems = graphData.value || [];
 
-        // 3. Mapeo y Formateo Chileno Estricto
+        // 3. Mapeo Quirúrgico de Datos y Ajuste de Horas
         const eventosProcesados = rawItems.map(item => {
             const f = item.fields || {};
             
-            // Rastreador agresivo de columnas para pillar la Sala de la Mistral
-            const salaReal = f["U_x002e_G_x002e_M_x0020_Sala"] || f["Sala"] || f["U_G_M_Sala"] || f["Location"] || f["U_x0020_G_x0020_M_x0020_Sala"] || f["Ubicacion"] || f["Ubicaci_x00f3_n"] || "Por definir";
+            // Mapeo flexible de ubicación
+            const salaReal = f["U_x002e_G_x002e_M_x0020_Sala"] || f["Sala"] || f["U_G_M_Sala"] || f["Location"] || f["Ubicacion"] || "Por definir";
             
-            // Captura de fecha cruda de SharePoint
-            const fechaCruda = f["EventDate"] || f["EventDateTime"] || f["StartDate"] || f["Fecha"] || f["Modified"] || "";
-            
-            let fechaFormateada = "";
+            // Corregir desfase de hora: Extraemos la fecha cruda
+            const fechaCruda = f["EventDate"] || f["EventDateTime"] || f["StartDate"] || "";
+            let fechaFinal = fechaCruda;
+
             if (fechaCruda) {
-                try {
-                    // Forzamos que la fecha se lea en la zona horaria de Chile Continental
-                    const dateObj = new Date(fechaCruda);
-                    fechaFormateada = dateObj.toLocaleString("sv-SE", { timeZone: "America/Santiago" }).replace(" ", "T");
-                } catch (e) {
-                    fechaFormateada = fechaCruda;
+                // Si la fecha viene de un calendario de SharePoint, suele venir en UTC. 
+                // Al restarle el desfase de Chile (UTC-4), las 00:00 del día siguiente vuelven a ser las 20:00 del día correcto.
+                const d = new Date(fechaCruda);
+                if (!isNaN(d.getTime())) {
+                    // Restamos el desfase manual para fijar las 20:00 horas exactas que tú pusiste
+                    d.setHours(d.getHours() - 4);
+                    fechaFinal = d.toISOString().replace("Z", "");
                 }
             }
 
             return {
                 title: f.Title || f.Title0 || f.LinkTitle || "Evento sin título",
                 sala: salaReal,
-                fecha: fechaFormateada
+                fecha: fechaFinal
             };
         });
 
