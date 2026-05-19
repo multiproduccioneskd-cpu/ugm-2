@@ -6,7 +6,7 @@
     { "src": "logo-blanco-celeste.png", "use": "@vercel/static" }
   ],
   "routes": [
-    { "src": "/api/cartelera", "dest": "api/cartelera.js" },
+    { "src": "/api/cartelera", "dest": "/api/cartelera.js" },
     { "src": "/(.*)", "dest": "/$1" }
   ]
 }
