@@ -238,7 +238,7 @@
                     }
                     if (salaDetected === "Por definir") {
                         for (let key in f) {
-                            if (typeof f[key] === 'string' && (f[key].includes("Auditorio") || f[key].includes("Gimnasio") || f[key].includes("Sala"))) {
+                            if (typeof f[key] === 'string' && (f[key].includes("Auditorio") || f[key].includes("Gimnasio") || f[key].includes("Sala") || f[key].includes("SALÓN"))) {
                                 salaDetected = f[key];
                                 break;
                             }
@@ -255,20 +255,33 @@
                     if (fechaCruda) {
                         const d = new Date(fechaCruda);
                         if (!isNaN(d.getTime())) {
-                            // CAMBIO CLAVE: Cambiamos el signo a MÁS (+) para adelantar las 4 horas del desfase
-                            const fechaCorregida = new Date(d.getTime() + 14400000); // 14400000ms = 4 horas
+                            // 1. Adelantamos el bloque base de horas que manda Microsoft Graph
+                            const fechaCorregida = new Date(d.getTime() + 14400000); // +4 horas base
                             
+                            // 2. FILTRO INTELIGENTE DE MINUTOS (Redondeo al bloque horario superior)
+                            // Si los minutos marcan entre :35 y :59 por culpa del desfase de la API, redondeamos a la hora siguiente en punto (:00)
+                            let minutosReales = fechaCorregida.getMinutes();
+                            let horasReales = fechaCorregida.getHours();
+                            
+                            if (minutosReales >= 35) {
+                                minutosReales = 0;
+                                horasReales = (horasReales + 1) % 24;
+                            } else if (minutosReales > 0 && minutosReales < 15) {
+                                // Si marca un residuo pequeño (como :04), lo planchamos a la hora en punto (:00)
+                                minutosReales = 0;
+                            }
+
                             const yyyy = fechaCorregida.getFullYear();
                             const mm = String(fechaCorregida.getMonth() + 1).padStart(2, '0');
                             const dd = String(fechaCorregida.getDate()).padStart(2, '0');
                             fechaTexto = `${yyyy}-${mm}-${dd}`;
                             
-                            const hh = String(fechaCorregida.getHours()).padStart(2, '0');
-                            const min = String(fechaCorregida.getMinutes()).padStart(2, '0');
+                            const hh = String(horasReales).padStart(2, '0');
+                            const min = String(minutosReales).padStart(2, '0');
                             horaTexto = `${hh}:${min}`;
                             
                             esHoy = fechaTexto === hoyChile;
-                            timestamp = fechaCorregida.getTime();
+                            timestamp = new Date(yyyy, fechaCorregida.getMonth(), dd, horasReales, minutosReales).getTime();
                         }
                     }
 
