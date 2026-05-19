@@ -1,4 +1,4 @@
-// Backend Definitivo Reforzado - Cartelera UGM
+// Backend Definitivo Estructurado - Cartelera UGM
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -7,9 +7,9 @@ export default async function handler(req, res) {
     if (req.method === 'OPTIONS') return res.status(200).end();
 
     try {
-        const { TENANT_ID, CLIENT_ID, CLIENT_SECRET, LIST_ID } = process.env;
+        const { TENANT_ID, CLIENT_ID, CLIENT_SECRET, SITE_ID, LIST_ID } = process.env;
 
-        // 1. Obtener Token de Azure
+        // 1. Obtener Token de Azure Identity
         const tokenUrl = `https://login.microsoftonline.com/${TENANT_ID}/oauth2/v2.0/token`;
         const params = new URLSearchParams({
             client_id: CLIENT_ID,
@@ -31,11 +31,8 @@ export default async function handler(req, res) {
         const tokenData = await tokenRes.json();
         const accessToken = tokenData.access_token;
 
-        // 2. Ruta Limpia Inteligente (Busca directo por el dominio de la UGM para evitar el itemNotFound)
-        const graphUrl = `https://graph.microsoft.com/v1.0/sites/ugmchile.sharepoint.com:/sites/cartelera:/lists/${LIST_ID}/items?expand=fields`;
-        
-        // NOTA: Si la lista no está en un sub-sitio llamado "cartelera", se usa la raíz:
-        // const graphUrl = `https://graph.microsoft.com/v1.0/sites/ugmchile.sharepoint.com/lists/${LIST_ID}/items?expand=fields`;
+        // 2. Ruta exacta del Bash del Administrador usando el SITE_ID compuesto
+        const graphUrl = `https://graph.microsoft.com/v1.0/sites/${SITE_ID}/lists/${LIST_ID}/items?expand=fields&$top=100`;
 
         const graphRes = await fetch(graphUrl, {
             headers: { 'Authorization': `Bearer ${accessToken}` }
@@ -49,7 +46,7 @@ export default async function handler(req, res) {
         const graphData = await graphRes.json();
         const rawItems = graphData.value || [];
 
-        // 3. Mapeo de columnas de SharePoint
+        // 3. Mapeo flexible de columnas para renderizar en la tele
         const eventosProcesados = rawItems.map(item => {
             const f = item.fields || {};
             const salaReal = f["U_x002e_G_x002e_M_x0020_Sala"] || f["Sala"] || f["Location"] || "Por definir";
