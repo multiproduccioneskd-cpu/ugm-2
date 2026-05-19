@@ -1,18 +1,15 @@
-// Backend Definitivo - Cartelera UGM (Sintaxis ESM Nativa para Vercel)
+// Backend Definitivo Reforzado - Cartelera UGM
 export default async function handler(req, res) {
-    // Configuración estricta de CORS para evitar bloqueos en la tele
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
 
-    if (req.method === 'OPTIONS') {
-        return res.status(200).end();
-    }
+    if (req.method === 'OPTIONS') return res.status(200).end();
 
     try {
-        const { TENANT_ID, CLIENT_ID, CLIENT_SECRET, SITE_ID, LIST_ID } = process.env;
+        const { TENANT_ID, CLIENT_ID, CLIENT_SECRET, LIST_ID } = process.env;
 
-        // 1. Rescate del Token de Acceso desde Azure Identity
+        // 1. Obtener Token de Azure
         const tokenUrl = `https://login.microsoftonline.com/${TENANT_ID}/oauth2/v2.0/token`;
         const params = new URLSearchParams({
             client_id: CLIENT_ID,
@@ -34,41 +31,41 @@ export default async function handler(req, res) {
         const tokenData = await tokenRes.json();
         const accessToken = tokenData.access_token;
 
-        // 2. Consulta a Microsoft Graph por la lista de SharePoint
-        const graphUrl = `https://graph.microsoft.com/v1.0/sites/${SITE_ID}/lists/${LIST_ID}/items?expand=fields`;
+        // 2. Ruta Limpia Inteligente (Busca directo por el dominio de la UGM para evitar el itemNotFound)
+        const graphUrl = `https://graph.microsoft.com/v1.0/sites/ugmchile.sharepoint.com:/sites/cartelera:/lists/${LIST_ID}/items?expand=fields`;
+        
+        // NOTA: Si la lista no está en un sub-sitio llamado "cartelera", se usa la raíz:
+        // const graphUrl = `https://graph.microsoft.com/v1.0/sites/ugmchile.sharepoint.com/lists/${LIST_ID}/items?expand=fields`;
+
         const graphRes = await fetch(graphUrl, {
             headers: { 'Authorization': `Bearer ${accessToken}` }
         });
 
         if (!graphRes.ok) {
             const errText = await graphRes.text();
-            throw new Error(`Error Microsoft Graph: ${errText}`);
+            throw new Error(`Microsoft Graph respondió: ${errText}`);
         }
+        
         const graphData = await graphRes.json();
         const rawItems = graphData.value || [];
 
-        // 3. Mapeo Flexible e Inteligente de Columnas (Evita que el JSON caiga vacío)
+        // 3. Mapeo de columnas de SharePoint
         const eventosProcesados = rawItems.map(item => {
             const f = item.fields || {};
-            
-            // Busca la columna de la Sala bajo distintas variaciones de SharePoint
-            const salaReal = f["U_x002e_G_x002e_M_x0020_Sala"] || f["Sala"] || f["Location"] || f["U_G_M_Sala"] || "Por definir";
-            
-            // Busca la columna de Fecha
-            const fechaReal = f["EventDate"] || f["EventDateTime"] || f["StartDate"] || f["Fecha"] || "";
+            const salaReal = f["U_x002e_G_x002e_M_x0020_Sala"] || f["Sala"] || f["Location"] || "Por definir";
+            const fechaReal = f["EventDate"] || f["EventDateTime"] || f["StartDate"] || "";
 
             return {
-                title: f.Title || f.Title0 || f.LinkTitle || "Evento sin título",
+                title: f.Title || f.Title0 || "Evento sin título",
                 sala: salaReal,
                 fecha: fechaReal
             };
         });
 
-        // 4. Entrega de datos limpia al frontend
         return res.status(200).json(eventosProcesados);
 
     } catch (error) {
-        console.error("Fallo crítico en Backend Cartelera:", error);
+        console.error("Fallo crítico:", error);
         return res.status(500).json({ 
             error: "Error interno del servidor backend", 
             mensaje: error.message 
