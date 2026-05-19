@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "functions/cartelera.js": {
+      "runtime": "vercel-nodejs@20"
+    }
+  },
+  "rewrites": [
+    { "source": "/api/cartelera", "destination": "/functions/cartelera.js" }
+  ]
+}
