@@ -11,7 +11,7 @@
         h1 { font-size: 3rem; text-transform: uppercase; color: #fff; letter-spacing: -1px; }
         #reloj { font-size: 3rem; font-weight: bold; color: #94a3b8; }
         
-        /* Contenedor principal con soporte de transiciones por opacidad */
+        /* Contenedor adaptado para transiciones y scroll */
         #contenedor-pantalla { flex-grow: 1; overflow: hidden; position: relative; margin-bottom: 20px; }
         
         #pantalla { 
@@ -22,6 +22,7 @@
             opacity: 1;
         }
 
+        /* Clases de control para el Fade In y Fade Out */
         .fade-out { opacity: 0 !important; }
         .fade-in { opacity: 1 !important; }
         
@@ -59,7 +60,7 @@
     </footer>
 
     <script>
-        // Reloj en tiempo real
+        // Reloj digital continuo
         function moverReloj() {
             const momento = new Date();
             document.getElementById('reloj').textContent = momento.toLocaleTimeString('es-CL', { hour12: false });
@@ -67,27 +68,25 @@
         setInterval(moverReloj, 1000);
         moverReloj();
 
-        // Control de vistas y scrolls
         let vistaActual = "HOY"; 
         let scrollInterval;
-        let datosLocales = []; // Guarda el JSON de SharePoint para cambiar de vista al tiro sin sobrecargar la API
+        let datosLocales = []; 
 
-        // 1. Descarga principal de datos desde Netlify (Ocurre cada 1 minuto)
+        // 1. Petición principal al backend (Cada 1 minuto)
         async function actualizarDatosSharePoint() {
             try {
                 const respuesta = await fetch('https://caleugm.netlify.app/.netlify/functions/cartelera?t=' + new Date().getTime());
                 if (!respuesta.ok) throw new Error('Error ' + respuesta.status);
                 datosLocales = await respuesta.json();
                 
-                // Renderiza la vista que esté activa en ese momento con los datos frescos
                 procesarYMostrarVista();
             } catch (error) {
                 console.error(error);
-                document.getElementById('pantalla').innerHTML = `<div class="vacio" style="color: #ef4444;">⚠️ Error de conexión con SharePoint</div>`;
+                procesarYMostrarVista();
             }
         }
 
-        // 2. Filtra, ordena y dibuja los elementos según la pantalla activa (HOY o SEMANA)
+        // 2. Procesamiento y lógica de filtrado bimodal (Hoy vs Próximos)
         function procesarYMostrarVista() {
             const ahora = new Date();
             const pantalla = document.getElementById('pantalla');
@@ -97,50 +96,45 @@
             const opcionesChile = { timeZone: 'America/Santiago', year: 'numeric', month: 'numeric', day: 'numeric' };
             const hoyChileString = ahora.toLocaleDateString('es-CL', opcionesChile);
 
-            // Actualizar el título principal arriba
             titulo.textContent = vistaActual === "HOY" ? "Eventos de Hoy" : "Próximos Eventos";
 
-            if (!datosLocales || datosLocales.length === 0) {
-                pantalla.innerHTML = `<div class="vacio">No hay datos disponibles</div>`;
-                return;
-            }
+            if (datosLocales && datosLocales.length > 0) {
+                datosLocales.forEach(item => {
+                    // Si viene vacío por problemas de SharePoint, forzamos la fecha de hoy para pruebas
+                    const fechaEvento = item.fecha ? new Date(item.fecha) : new Date();
+                    
+                    if (!isNaN(fechaEvento.getTime())) {
+                        const evChileString = fechaEvento.toLocaleDateString('es-CL', opcionesChile);
 
-            datosLocales.forEach(item => {
-                const fields = item.fields || {};
-                if (fields.EventDate) {
-                    const fechaEvento = new Date(fields.EventDate);
-                    const evChileString = fechaEvento.toLocaleDateString('es-CL', opcionesChile);
-                    const salaNombre = fields["U_x002e_G_x002e_M_x0020_Sala"] || fields.Location || "Por definir";
+                        const ev = {
+                            asunto: item.title,
+                            sala: item.sala,
+                            hora_inicio: fechaEvento
+                        };
 
-                    const ev = {
-                        asunto: fields.Title || fields.Title0 || 'Evento sin título',
-                        sala: salaNombre,
-                        hora_inicio: fechaEvento
-                    };
-
-                    if (vistaActual === "HOY") {
-                        // Modo HOY: Solo el día actual y que no hayan pasado hace más de 2 horas
-                        if (evChileString === hoyChileString && fechaEvento.getTime() >= (ahora.getTime() - 7200000)) {
-                            eventosFiltrados.push(ev);
-                        }
-                    } else {
-                        // Modo PROXIMOS: Eventos de los días que vienen (mañana en adelante)
-                        if (evChileString !== hoyChileString && fechaEvento.getTime() > ahora.getTime()) {
-                            eventosFiltrados.push(ev);
+                        if (vistaActual === "HOY") {
+                            // Filtro HOY: Mismo día calendario
+                            if (evChileString === hoyChileString) {
+                                eventosFiltrados.push(ev);
+                            }
+                        } else {
+                            // Filtro SEMANA: Días posteriores en adelante
+                            if (evChileString !== hoyChileString) {
+                                eventosFiltrados.push(ev);
+                            }
                         }
                     }
-                }
-            });
+                });
+                // Ordenar cronológicamente
+                eventosFiltrados.sort((a, b) => a.hora_inicio - b.hora_inicio);
+            }
 
-            // Ordenar por hora/fecha cronológica
-            eventosFiltrados.sort((a, b) => a.hora_inicio - b.hora_inicio);
-
-            // Transición Fade Out antes de inyectar las nuevas tarjetas
+            // GATILLAR FADE OUT (Ocultar con suavidad)
             pantalla.classList.add('fade-out');
 
             setTimeout(() => {
                 pantalla.innerHTML = "";
-                pantalla.style.transform = `translateY(0px)`; // Resetea el scroll arriba al cambiar de pantalla
+                pantalla.style.transform = `translateY(0px)`; // Resetea el scroll arriba al cambiar de pestaña
 
                 if (eventosFiltrados.length === 0) {
                     pantalla.innerHTML = vistaActual === "HOY" 
@@ -166,52 +160,48 @@
                         pantalla.appendChild(card);
                     });
 
-                    // Si las tarjetas desbordan la pantalla física, activa el auto-scroll interno
+                    // Si rebalsa el contenedor físico, activa el scroll automático por bloques
                     ajustarAutoScrollInterno();
                 }
 
-                // Quitar Fade Out y activar Fade In para mostrar la nueva ventana suavemente
+                // GATILLAR FADE IN (Mostrar con suavidad con datos nuevos)
                 pantalla.classList.remove('fade-out');
                 pantalla.classList.add('fade-in');
-            }, 500);
+            }, 500); // 500ms dura el desvanecimiento CSS
         }
 
-        // 3. Sistema de auto-scroll por bloques si hay muchas tarjetas acumuladas
+        // 3. Sistema de Auto-Scroll mecánico por bloques de pantalla
         function ajustarAutoScrollInterno() {
             if (scrollInterval) clearInterval(scrollInterval);
-
             const contenedor = document.getElementById('contenedor-pantalla');
             const pantalla = document.getElementById('pantalla');
-            
             let posicionActual = 0;
             const altoContenedor = contenedor.clientHeight;
 
             scrollInterval = setInterval(() => {
                 const altoContenido = pantalla.scrollHeight;
-
                 if (altoContenido <= altoContenedor) return;
-
-                posicionActual += (altoContenedor - 40);
+                posicionActual += (altoContenedor - 40); // Desplaza casi la pantalla completa
 
                 if (posicionActual >= altoContenido) {
                     setTimeout(() => {
                         posicionActual = 0;
                         pantalla.style.transform = `translateY(0px)`;
-                    }, 2000);
+                    }, 2000); // Pausa de 2 segundos abajo antes de resetear arriba
                 } else {
                     pantalla.style.transform = `translateY(-${posicionActual}px)`;
                 }
-            }, 8000); // Mueve el bloque de tarjetas cada 8 segundos si es necesario
+            }, 8000); // Cambia de bloque cada 8 segundos
         }
 
-        // 4. RELOJ DE ROTACIÓN: Cambia de ventana ("HOY" <-> "SEMANA") cada 1 minuto (60000 ms)
+        // 4. Temporizador de rotación de pantallas (Alterna HOY y SEMANA cada 15 segundos)
         setInterval(() => {
             vistaActual = (vistaActual === "HOY") ? "SEMANA" : "HOY";
             procesarYMostrarVista();
-        }, 60000);
+        }, 15000);
 
-        // Disparadores iniciales
-        setInterval(actualizarDatosSharePoint, 60000); // Sincroniza con la API de fondo cada un minuto
+        // Inicialización en bucle continuo
+        setInterval(actualizarDatosSharePoint, 60000); 
         actualizarDatosSharePoint();
     </script>
 </body>
