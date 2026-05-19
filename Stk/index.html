@@ -11,7 +11,7 @@
         h1 { font-size: 3rem; text-transform: uppercase; color: #fff; letter-spacing: -1px; }
         #reloj { font-size: 3rem; font-weight: bold; color: #94a3b8; }
         
-        /* Contenedor adaptado para transiciones y scroll */
+        /* Contenedor adaptado para transiciones por bloques y scroll */
         #contenedor-pantalla { flex-grow: 1; overflow: hidden; position: relative; margin-bottom: 20px; }
         
         #pantalla { 
@@ -22,7 +22,7 @@
             opacity: 1;
         }
 
-        /* Clases de control para el Fade In y Fade Out */
+        /* Clases de control para los efectos de transicion suaves */
         .fade-out { opacity: 0 !important; }
         .fade-in { opacity: 1 !important; }
         
@@ -60,7 +60,7 @@
     </footer>
 
     <script>
-        // Reloj digital continuo
+        // Reloj digital continuo al segundo
         function moverReloj() {
             const momento = new Date();
             document.getElementById('reloj').textContent = momento.toLocaleTimeString('es-CL', { hour12: false });
@@ -72,21 +72,24 @@
         let scrollInterval;
         let datosLocales = []; 
 
-        // 1. Petición principal al backend (Cada 1 minuto)
+        // 1. Petición principal apuntando directo al nuevo backend en Vercel
         async function actualizarDatosSharePoint() {
             try {
-                const respuesta = await fetch('https://caleugm.netlify.app/.netlify/functions/cartelera?t=' + new Date().getTime());
+                // NOTA: Reemplaza esta URL por la que te entregó Vercel en tu panel (debe terminar en /api/cartelera)
+                const urlVercel = 'https://ugm-2.vercel.app/api/cartelera'; 
+                
+                const respuesta = await fetch(urlVercel + '?t=' + new Date().getTime());
                 if (!respuesta.ok) throw new Error('Error ' + respuesta.status);
                 datosLocales = await respuesta.json();
                 
                 procesarYMostrarVista();
             } catch (error) {
-                console.error(error);
+                console.error("Fallo al conectar con la API de Vercel:", error);
                 procesarYMostrarVista();
             }
         }
 
-        // 2. Procesamiento y lógica de filtrado bimodal (Hoy vs Próximos)
+        // 2. Lógica de renderizado bimodal (Separa el día de hoy de los próximos)
         function procesarYMostrarVista() {
             const ahora = new Date();
             const pantalla = document.getElementById('pantalla');
@@ -100,7 +103,7 @@
 
             if (datosLocales && datosLocales.length > 0) {
                 datosLocales.forEach(item => {
-                    // Si viene vacío por problemas de SharePoint, forzamos la fecha de hoy para pruebas
+                    // Parche: Si viene sin fecha por cacho de sincronización, le asume hoy para pruebas
                     const fechaEvento = item.fecha ? new Date(item.fecha) : new Date();
                     
                     if (!isNaN(fechaEvento.getTime())) {
@@ -113,28 +116,28 @@
                         };
 
                         if (vistaActual === "HOY") {
-                            // Filtro HOY: Mismo día calendario
+                            // Ventana HOY: Calza exactamente el día calendario
                             if (evChileString === hoyChileString) {
                                 eventosFiltrados.push(ev);
                             }
                         } else {
-                            // Filtro SEMANA: Días posteriores en adelante
+                            // Ventana PROXIMOS: Días posteriores en adelante
                             if (evChileString !== hoyChileString) {
                                 eventosFiltrados.push(ev);
                             }
                         }
                     }
                 });
-                // Ordenar cronológicamente
+                // Ordenar cronológicamente por hora/fecha de inicio
                 eventosFiltrados.sort((a, b) => a.hora_inicio - b.hora_inicio);
             }
 
-            // GATILLAR FADE OUT (Ocultar con suavidad)
+            // GATILLAR EL EFECTO FADE OUT (Ocultar suave)
             pantalla.classList.add('fade-out');
 
             setTimeout(() => {
                 pantalla.innerHTML = "";
-                pantalla.style.transform = `translateY(0px)`; // Resetea el scroll arriba al cambiar de pestaña
+                pantalla.style.transform = `translateY(0px)`; // Reinicia el scroll al tope de la lista
 
                 if (eventosFiltrados.length === 0) {
                     pantalla.innerHTML = vistaActual === "HOY" 
@@ -160,17 +163,17 @@
                         pantalla.appendChild(card);
                     });
 
-                    // Si rebalsa el contenedor físico, activa el scroll automático por bloques
+                    // Si desborda el alto de la pantalla, activa el auto-scroll automático
                     ajustarAutoScrollInterno();
                 }
 
-                // GATILLAR FADE IN (Mostrar con suavidad con datos nuevos)
+                // GATILLAR EL EFECTO FADE IN (Mostrar suave con la lista ya armada)
                 pantalla.classList.remove('fade-out');
                 pantalla.classList.add('fade-in');
-            }, 500); // 500ms dura el desvanecimiento CSS
+            }, 500); // Duración exacta de la transición de opacidad CSS
         }
 
-        // 3. Sistema de Auto-Scroll mecánico por bloques de pantalla
+        // 3. Sistema de scroll mecánico automático por bloques
         function ajustarAutoScrollInterno() {
             if (scrollInterval) clearInterval(scrollInterval);
             const contenedor = document.getElementById('contenedor-pantalla');
@@ -181,28 +184,29 @@
             scrollInterval = setInterval(() => {
                 const altoContenido = pantalla.scrollHeight;
                 if (altoContenido <= altoContenedor) return;
-                posicionActual += (altoContenedor - 40); // Desplaza casi la pantalla completa
+                posicionActual += (altoContenedor - 40); // Avanza un bloque de pantalla menos margen
 
                 if (posicionActual >= altoContenido) {
                     setTimeout(() => {
                         posicionActual = 0;
                         pantalla.style.transform = `translateY(0px)`;
-                    }, 2000); // Pausa de 2 segundos abajo antes de resetear arriba
+                    }, 2000); // 2 segundos de pausa abajo antes de saltar arriba de golpe
                 } else {
                     pantalla.style.transform = `translateY(-${posicionActual}px)`;
                 }
-            }, 8000); // Cambia de bloque cada 8 segundos
+            }, 8000); // Avanza de bloque cada 8 segundos
         }
 
-        // 4. Temporizador de rotación de pantallas (Alterna HOY y SEMANA cada 15 segundos)
+        // 4. Temporizador de rotación bimodal: Alterna la vista cada 15 segundos exactos
         setInterval(() => {
             vistaActual = (vistaActual === "HOY") ? "SEMANA" : "HOY";
             procesarYMostrarVista();
         }, 15000);
 
-        // Inicialización en bucle continuo
+        // Ciclo continuo: Actualiza los datos de SharePoint en segundo plano cada 1 minuto
         setInterval(actualizarDatosSharePoint, 60000); 
         actualizarDatosSharePoint();
     </script>
 </body>
+</html>
 </html>
