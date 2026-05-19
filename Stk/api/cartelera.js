@@ -8,8 +8,6 @@ export default async function handler(req, res) {
     try {
         const { TENANT_ID, CLIENT_ID, CLIENT_SECRET, LIST_ID } = process.env;
 
-        const siteIdCompleto = "ugmchile.sharepoint.com,0aaa32cc-4ad1-4d99-9ee6-78ede7cfff66,a582523d-6b22-417e-bf2b-5b8b6e2fe62f";
-
         const tokenUrl = `https://login.microsoftonline.com/${TENANT_ID}/oauth2/v2.0/token`;
         const params = new URLSearchParams({
             client_id: CLIENT_ID,
@@ -31,10 +29,15 @@ export default async function handler(req, res) {
         const tokenData = await tokenRes.json();
         const accessToken = tokenData.access_token;
 
-        const graphUrl = `https://graph.microsoft.com/v1.0/sites/${siteIdCompleto}/lists/${LIST_ID}/items?expand=fields&$top=100`;
+        const siteIdCrudo = "ugmchile.sharepoint.com,0aaa32cc-4ad1-4d99-9ee6-78ede7cfff66,a582523d-6b22-417e-bf2b-5b8b6e2fe62f";
+        const graphUrl = `https://graph.microsoft.com/v1.0/sites/${siteIdCrudo}/lists/${LIST_ID}/items?expand=fields&$top=100`;
 
         const graphRes = await fetch(graphUrl, {
-            headers: { 'Authorization': `Bearer ${accessToken}` }
+            method: 'GET',
+            headers: { 
+                'Authorization': `Bearer ${accessToken}`,
+                'Accept': 'application/json'
+            }
         });
 
         if (!graphRes.ok) {
