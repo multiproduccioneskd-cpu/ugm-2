@@ -1,4 +1,3 @@
-// Backend Definitivo Estructurado - Cartelera UGM (Fijo)
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -7,9 +6,8 @@ export default async function handler(req, res) {
     if (req.method === 'OPTIONS') return res.status(200).end();
 
     try {
-        const { TENANT_ID, CLIENT_ID, CLIENT_SECRET, SITE_ID, LIST_ID } = process.env;
+        const { TENANT_ID, CLIENT_ID, CLIENT_SECRET, LIST_ID } = process.env;
 
-        // 1. Obtener Token de Azure Identity
         const tokenUrl = `https://login.microsoftonline.com/${TENANT_ID}/oauth2/v2.0/token`;
         const params = new URLSearchParams({
             client_id: CLIENT_ID,
@@ -31,9 +29,7 @@ export default async function handler(req, res) {
         const tokenData = await tokenRes.json();
         const accessToken = tokenData.access_token;
 
-        // 2. Formato nativo limpio usando el SITE_ID compuesto sin codificación extra
-        // Esta es exactamente la ruta del curl del administrador de TI
-        const graphUrl = `https://graph.microsoft.com/v1.0/sites/${encodeURIComponent(SITE_ID).replace(/%2C/g, ',')}/lists/${LIST_ID}/items?expand=fields&$top=100`;
+        const graphUrl = `https://graph.microsoft.com/v1.0/sites/ugmchile.sharepoint.com/lists/${LIST_ID}/items?expand=fields&$top=100`;
 
         const graphRes = await fetch(graphUrl, {
             headers: { 'Authorization': `Bearer ${accessToken}` }
@@ -47,7 +43,6 @@ export default async function handler(req, res) {
         const graphData = await graphRes.json();
         const rawItems = graphData.value || [];
 
-        // 3. Mapeo flexible de columnas para renderizar en la tele
         const eventosProcesados = rawItems.map(item => {
             const f = item.fields || {};
             const salaReal = f["U_x002e_G_x002e_M_x0020_Sala"] || f["Sala"] || f["Location"] || "Por definir";
@@ -63,10 +58,5 @@ export default async function handler(req, res) {
         return res.status(200).json(eventosProcesados);
 
     } catch (error) {
-        console.error("Fallo crítico:", error);
-        return res.status(500).json({ 
-            error: "Error interno del servidor backend", 
-            mensaje: error.message 
-        });
-    }
-}
+        console.error("Fallo crítico backend:", error);
+        return
