@@ -59,6 +59,12 @@
 
                 // LÍNEA 76 CORREGIDA: Apunta al Netlify vivo desde afuera
                 const respuesta = await fetch('https://caleugm.netlify.app/.netlify/functions/cartelera?t=' + new Date().getTime());
+
+if (!respuesta.ok) {
+    throw new Error('El servidor de Netlify devolvió un error ' + respuesta.status);
+}
+
+const items = await respuesta.json();
                 const items = await respuesta.json();
 
                 let eventosFiltrados = [];
