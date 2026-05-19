@@ -73,7 +73,7 @@
                 const titulo = document.getElementById('titulo-cartelera');
                 
                 // Llama al endpoint de Netlify rompiendo caché con timestamp
-                const respuesta = await fetch('/.netlify/functions/cartelera?t=' + new Date().getTime());
+                const respuesta = await fetch('https://caleugm.netlify.app/.netlify/functions/cartelera?t=' + new Date().getTime());
                 const items = await respuesta.json();
 
                 let eventosFiltrados = [];
