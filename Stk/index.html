@@ -57,14 +57,14 @@
                 const pantalla = document.getElementById('pantalla');
                 const titulo = document.getElementById('titulo-cartelera');
 
-                // LÍNEA 76 CORREGIDA: Apunta al Netlify vivo desde afuera
+                // Petición al backend en Netlify
                 const respuesta = await fetch('https://caleugm.netlify.app/.netlify/functions/cartelera?t=' + new Date().getTime());
+                
+                if (!respuesta.ok) {
+                    throw new Error('El servidor de Netlify devolvió un error ' + respuesta.status);
+                }
 
-if (!respuesta.ok) {
-    throw new Error('El servidor de Netlify devolvió un error ' + respuesta.status);
-}
-
-const items = await respuesta.json();
+                // UNICA DECLARACIÓN DE ITEMS (Corregido el error de duplicidad)
                 const items = await respuesta.json();
 
                 let eventosFiltrados = [];
@@ -76,7 +76,7 @@ const items = await respuesta.json();
                     if (fields.EventDate) {
                         const fechaEvento = new Date(fields.EventDate);
                         
-                        // LÍNEA 90 CORREGIDA: Parche de la sala UGM
+                        // Parche de la sala UGM para mapear la columna codificada
                         const salaNombre = fields["U_x002e_G_x002e_M_x0020_Sala"] || fields.Location || "Por definir";
 
                         const ev = {
@@ -128,7 +128,7 @@ const items = await respuesta.json();
             }
         }
 
-        // Sistema de rotación y carga
+        // Sistema de rotación y carga cada 30 segundos
         setInterval(renderizarCartelera, 30000);
         renderizarCartelera();
     </script>
