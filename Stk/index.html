@@ -72,10 +72,11 @@
         let scrollInterval;
         let datosLocales = []; 
 
-        // 1. Petición principal usando ruta relativa nativa de Vercel
+        // 1. Petición principal apuntando con URL de producción absoluta
         async function actualizarDatosSharePoint() {
             try {
-                const respuesta = await fetch('/api/cartelera?t=' + new Date().getTime());
+                const urlBackend = 'https://ugm-2.vercel.app/api/cartelera';
+                const respuesta = await fetch(urlBackend + '?t=' + new Date().getTime());
                 if (!respuesta.ok) throw new Error('Error ' + respuesta.status);
                 datosLocales = await respuesta.json();
                 
