@@ -1,4 +1,4 @@
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -6,7 +6,7 @@ module.exports = async function handler(req, res) {
     if (req.method === 'OPTIONS') return res.status(200).end();
 
     try {
-        const { TENANT_ID, CLIENT_ID, CLIENT_SECRET, LIST_ID } = process.env;
+        const { TENANT_ID, CLIENT_ID, CLIENT_SECRET } = process.env;
 
         // 1. Obtener Token de Azure Identity
         const tokenUrl = `https://login.microsoftonline.com/${TENANT_ID}/oauth2/v2.0/token`;
@@ -30,9 +30,8 @@ module.exports = async function handler(req, res) {
         const tokenData = await tokenRes.json();
         const accessToken = tokenData.access_token;
 
-        // 2. LA RUTA DEFINITIVA: Buscamos por el hostname y el path exacto de SharePoint
-        // Esto le dice a Microsoft que resuelva la ruta internamente, eliminando el itemNotFound
-        const graphUrl = `https://graph.microsoft.com/v1.0/sites/ugmchile.sharepoint.com:/sites/cartelera:/lists/${LIST_ID}/items?expand=fields&$top=100`;
+        // 2. RUTA CORREGIDA CON EL SITIO "Calen" Y LA LISTA "lista calen"
+        const graphUrl = `https://graph.microsoft.com/v1.0/sites/ugmchile.sharepoint.com:/sites/Calen:/lists/lista%20calen/items?expand=fields&$top=100`;
 
         const graphRes = await fetch(graphUrl, {
             method: 'GET',
@@ -50,6 +49,7 @@ module.exports = async function handler(req, res) {
         const graphData = await graphRes.json();
         const rawItems = graphData.value || [];
 
+        // 3. Mapeo de columnas para la pantalla de la tele
         const eventosProcesados = rawItems.map(item => {
             const f = item.fields || {};
             const salaReal = f["U_x002e_G_x002e_M_x0020_Sala"] || f["Sala"] || f["Location"] || "Por definir";
