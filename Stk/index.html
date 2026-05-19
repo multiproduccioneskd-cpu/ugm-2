@@ -11,9 +11,20 @@
         h1 { font-size: 3rem; text-transform: uppercase; color: #fff; letter-spacing: -1px; }
         #reloj { font-size: 3rem; font-weight: bold; color: #94a3b8; }
         
-        /* Contenedor principal para el scroll automático */
+        /* Contenedor principal con scroll y efectos de transicion fade */
         #contenedor-pantalla { flex-grow: 1; overflow: hidden; position: relative; margin-bottom: 20px; }
-        #pantalla { position: absolute; width: 100%; top: 0; transition: transform 0.6s ease-in-out; }
+        
+        #pantalla { 
+            position: absolute; 
+            width: 100%; 
+            top: 0; 
+            transition: transform 0.6s ease-in-out, opacity 0.5s ease-in-out; 
+            opacity: 1;
+        }
+
+        /* Clases para gatillar el Fade In y Fade Out desde JS */
+        .fade-out { opacity: 0 !important; }
+        .fade-in { opacity: 1 !important; }
         
         .evento-card { background: #1e293b; padding: 25px; margin-bottom: 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
         .hoy-card { border-left: 10px solid #3b82f6; }
@@ -48,7 +59,7 @@
         <img class="logo-ugm" src="logo-blanco-celeste.png" alt="Logo UGM">
     </footer>
 
-    <script>
+    <script {timestamp="2026-05-19"}>
         // Reloj en tiempo real
         function moverReloj() {
             const momento = new Date();
@@ -64,7 +75,7 @@
                 const ahora = new Date();
                 const pantalla = document.getElementById('pantalla');
 
-                // Petición de datos al backend en Netlify
+                // Petición de datos al backend en Netlify sacando el bypass de caché
                 const respuesta = await fetch('https://caleugm.netlify.app/.netlify/functions/cartelera?t=' + new Date().getTime());
                 if (!respuesta.ok) throw new Error('Error ' + respuesta.status);
 
@@ -79,7 +90,7 @@
                     if (fields.EventDate) {
                         const fechaEvento = new Date(fields.EventDate);
                         
-                        // FILTRO: Muestra el evento si es de hoy o del futuro (oculta los antiguos de hace más de 2 horas)
+                        // FILTRO: Hoy + Próximos (oculta los antiguos que pasaron hace más de 2 horas)
                         if (fechaEvento.getTime() >= (ahora.getTime() - 7200000)) {
                             const salaNombre = fields["U_x002e_G_x002e_M_x0020_Sala"] || fields.Location || "Por definir";
                             const evChileString = fechaEvento.toLocaleDateString('es-CL', opcionesChile);
@@ -94,37 +105,45 @@
                     }
                 });
 
-                // Ordenar cronológicamente (primero lo más cercano)
+                // Ordenar cronológicamente
                 eventosValidos.sort((a, b) => a.hora_inicio - b.hora_inicio);
 
-                if (eventosValidos.length === 0) {
-                    pantalla.innerHTML = `<div class="vacio">No hay eventos programados para los próximos días</div>`;
-                    if (scrollInterval) clearInterval(scrollInterval);
-                    pantalla.style.transform = `translateY(0px)`;
-                    return;
-                }
+                // --- GATILLAR EL FADE OUT ANTES DE CAMBIAR EL CONTENIDO ---
+                pantalla.classList.add('fade-out');
 
-                pantalla.innerHTML = "";
-                eventosValidos.forEach(ev => {
-                    const horaTexto = ev.hora_inicio.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false });
-                    const fechaTexto = ev.esHoy ? "Hoy" : ev.hora_inicio.toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric', month: 'short' });
+                setTimeout(() => {
+                    if (eventosValidos.length === 0) {
+                        pantalla.innerHTML = `<div class="vacio">No hay eventos programados para los próximos días</div>`;
+                        if (scrollInterval) clearInterval(scrollInterval);
+                        pantalla.style.transform = `translateY(0px)`;
+                    } else {
+                        pantalla.innerHTML = "";
+                        eventosValidos.forEach(ev => {
+                            const horaTexto = ev.hora_inicio.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false });
+                            const fechaTexto = ev.esHoy ? "Hoy" : ev.hora_inicio.toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric', month: 'short' });
 
-                    const card = document.createElement('div');
-                    card.className = `evento-card ${ev.esHoy ? 'hoy-card' : 'proximo-card'}`;
-                    
-                    card.innerHTML = `
-                        <div class="badge-info">
-                            <span class="fecha-tag">${fechaTexto}</span>
-                            <span class="hora-tag">${horaTexto}</span>
-                        </div>
-                        <div class="info-principal">${ev.asunto}</div>
-                        <div class="sala-tag">${ev.sala}</div>
-                    `;
-                    pantalla.appendChild(card);
-                });
+                            const card = document.createElement('div');
+                            card.className = `evento-card ${ev.esHoy ? 'hoy-card' : 'proximo-card'}`;
+                            
+                            card.innerHTML = `
+                                <div class="badge-info">
+                                    <span class="fecha-tag">${fechaTexto}</span>
+                                    <span class="hora-tag">${horaTexto}</span>
+                                </div>
+                                <div class="info-principal">${ev.asunto}</div>
+                                <div class="sala-tag">${ev.sala}</div>
+                            `;
+                            pantalla.appendChild(card);
+                        });
 
-                // Activar auto-scroll si los eventos superan el alto de la pantalla
-                ajustarAutoScroll();
+                        // Recalcular el auto-scroll mecánico por bloques si desborda
+                        ajustarAutoScroll();
+                    }
+
+                    // --- GATILLAR EL FADE IN CON LOS DATOS NUEVOS CARGADOS ---
+                    pantalla.classList.remove('fade-out');
+                    pantalla.classList.add('fade-in');
+                }, 500); // 500ms dura la transición de opacidad del CSS
 
             } catch (error) {
                 console.error(error);
@@ -132,7 +151,7 @@
             }
         }
 
-        // Lógica de Scroll por bloques mecánicos
+        // Lógica de Scroll por bloques de pantalla completa (8 segundos por vista)
         function ajustarAutoScroll() {
             if (scrollInterval) clearInterval(scrollInterval);
 
@@ -145,13 +164,13 @@
             scrollInterval = setInterval(() => {
                 const altoContenido = pantalla.scrollHeight;
 
-                // Si todo el texto cabe en la pantalla actual, no se mueve
+                // Si todo cabe, nos quedamos quietos
                 if (altoContenido <= altoContenedor) return;
 
-                posicionActual += (altoContenedor - 40); // Baja casi un bloque completo
+                posicionActual += (altoContenedor - 40); // Avanzar un bloque restando margen
 
                 if (posicionActual >= altoContenido) {
-                    // Si llegó al fondo, espera un momento y vuelve arriba de golpe
+                    // Si llegó abajo, esperamos y reiniciamos el scroll arriba
                     setTimeout(() => {
                         posicionActual = 0;
                         pantalla.style.transform = `translateY(0px)`;
@@ -159,12 +178,7 @@
                 } else {
                     pantalla.style.transform = `translateY(-${posicionActual}px)`;
                 }
-            }, 8000); // Avanza de bloque cada 8 segundos
+            }, 8000);
         }
 
-        // Ejecutar carga inicial y actualizar cada 1 minuto
-        setInterval(renderizarCartelera, 60000);
-        renderizarCartelera();
-    </script>
-</body>
-</html>
+        // Ejecutar carga inicial y actualizar datos
