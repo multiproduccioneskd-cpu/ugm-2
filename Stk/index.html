@@ -171,11 +171,8 @@
 
         function updateClock() {
             const ahora = new Date();
-            
-            // Hora en tiempo real
             document.getElementById('current-time').innerText = ahora.toLocaleTimeString('es-CL', { hour12: false });
             
-            // Fecha del encabezado
             const opciones = { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Santiago' };
             let fechaTexto = ahora.toLocaleDateString('es-CL', opciones);
             document.getElementById('current-date').innerText = fechaTexto.charAt(0).toUpperCase() + fechaTexto.slice(1);
@@ -208,7 +205,7 @@
                 } else {
                     container.style.transform = `translateY(0px)`;
                 }
-            }, 40); // Velocidad del scroll ajustable
+            }, 40);
         }
 
         async function cargarCartelera() {
@@ -227,17 +224,19 @@
 
                 const hoyChile = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
 
-                // Procesamos sin botar ningún dato a la basura
                 const datosProcesados = eventos.map(ev => {
                     let fechaTexto = "Próximamente";
-                    let horaTexto = "--:--";
+                    let horaTexto = "20:00"; // Fallback por defecto si no hay datos
                     let esHoy = false;
                     let timestamp = 9999999999999;
 
                     if (ev.fecha) {
+                        // Extractor de texto puro para evitar que la zona horaria mutile la visualización
                         const partes = ev.fecha.split('T');
                         fechaTexto = partes[0];
-                        horaTexto = partes[1] ? partes[1].substring(0, 5) : "00:00";
+                        if (partes[1]) {
+                            horaTexto = partes[1].substring(0, 5);
+                        }
                         esHoy = fechaTexto === hoyChile;
                         timestamp = new Date(ev.fecha).getTime();
                     }
@@ -252,7 +251,7 @@
                     };
                 });
 
-                // Ordenar: Hoy primero por hora, después lo Próximo cronológicamente
+                // Orden cronológico estricto: Hoy arriba, días siguientes abajo
                 datosProcesados.sort((a, b) => {
                     if (a.esHoy && !b.esHoy) return -1;
                     if (!a.esHoy && b.esHoy) return 1;
@@ -265,11 +264,14 @@
                     let etiquetaDia = "Hoy";
                     
                     if (!ev.esHoy && ev.fechaStr !== "Próximamente") {
-                        // Formato limpio para días siguientes (Ej: "Jue 21")
-                        const d = new Date(ev.fechaStr + 'T12:00:00');
-                        const nombreDia = d.toLocaleDateString('es-CL', { weekday: 'short' }).replace('.', '');
-                        const numDia = d.getDate();
-                        etiquetaDia = `${nombreDia.charAt(0).toUpperCase() + nombreDia.slice(1)} ${numDia}`;
+                        try {
+                            const d = new Date(ev.fechaStr + 'T12:00:00');
+                            const nombreDia = d.toLocaleDateString('es-CL', { weekday: 'short' }).replace('.', '');
+                            const numDia = d.getDate();
+                            etiquetaDia = `${nombreDia.charAt(0).toUpperCase() + nombreDia.slice(1)} ${numDia}`;
+                        } catch (e) {
+                            etiquetaDia = "Próximo";
+                        }
                     }
 
                     const card = document.createElement('div');
@@ -287,7 +289,6 @@
                     container.appendChild(card);
                 });
 
-                // Lanzar scroll si las tarjetas rebasan la pantalla de la tele
                 setTimeout(iniciarScroll, 1000);
 
             } catch (error) {
@@ -296,7 +297,6 @@
             }
         }
 
-        // Ejecución inicial y refresco cada 30 segundos
         cargarCartelera();
         setInterval(cargarCartelera, 30000);
     </script>
