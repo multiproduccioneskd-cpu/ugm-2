@@ -1,5 +1,6 @@
-export default async function handler(req, res) {
-    // Configuración obligatoria de CORS para permitir que cualquier pantalla lea los datos
+// Backend adaptado al constructor del vercel.json actual
+module.exports = async (req, res) => {
+    // Configuración obligatoria de CORS para la tele de la UGM
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -33,7 +34,7 @@ export default async function handler(req, res) {
         const tokenData = await tokenRes.json();
         const accessToken = tokenData.access_token;
 
-        // 2. Consultar los ítems de la lista de SharePoint de la UGM
+        // 2. Consultar los ítems del calendario de SharePoint de la UGM
         const graphUrl = `https://graph.microsoft.com/v1.0/sites/${SITE_ID}/lists/${LIST_ID}/items?expand=fields`;
         const graphRes = await fetch(graphUrl, {
             headers: { Authorization: `Bearer ${accessToken}` }
@@ -43,7 +44,7 @@ export default async function handler(req, res) {
         const graphData = await graphRes.json();
         const rawItems = graphData.value || [];
 
-        // 3. Mapear y procesar las columnas reales de la UGM
+        // 3. Mapear y limpiar las columnas críticas reales de la UGM
         const eventosProcesados = rawItems.map(item => {
             const f = item.fields || {};
             let salaReal = f["U_x002e_G_x002e_M_x0020_Sala"] || f.Location || "Por definir";
@@ -56,11 +57,11 @@ export default async function handler(req, res) {
             };
         });
 
-        // 4. Responder con el JSON limpio
+        // 4. Retornar el JSON limpio al frontend
         return res.status(200).json(eventosProcesados);
 
     } catch (error) {
         console.error("Error en API Cartelera:", error);
         return res.status(500).json({ error: "Error de comunicación backend", detalle: error.message });
     }
-}
+};
