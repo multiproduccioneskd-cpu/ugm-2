@@ -8,40 +8,48 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
         body { background: #020617; color: #f8fafc; padding: 40px; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
         header { display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid #3b82f6; padding-bottom: 20px; margin-bottom: 30px; }
-        h1 { font-size: 3rem; text-transform: uppercase; color: #fff; }
+        h1 { font-size: 3rem; text-transform: uppercase; color: #fff; letter-spacing: -1px; }
         #reloj { font-size: 3rem; font-weight: bold; color: #94a3b8; }
-        #pantalla { flex-grow: 1; overflow-y: auto; padding-right: 10px; scroll-behavior: smooth; }
-        #pantalla::-webkit-scrollbar { display: none; }
-        .evento-card { background: #1e293b; padding: 25px; margin-bottom: 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; }
+        
+        /* Contenedor principal para el scroll automático */
+        #contenedor-pantalla { flex-grow: 1; overflow: hidden; position: relative; margin-bottom: 20px; }
+        #pantalla { position: absolute; width: 100%; top: 0; transition: transform 0.6s ease-in-out; }
+        
+        .evento-card { background: #1e293b; padding: 25px; margin-bottom: 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
         .hoy-card { border-left: 10px solid #3b82f6; }
-        .semana-card { border-left: 10px solid #f59e0b; }
-        @keyframes deslizarEntrada { 0% { opacity: 0; transform: translateX(-30px); } 100% { opacity: 1; transform: translateX(0); } }
-        .info-principal { font-size: 2.5rem; font-weight: bold; flex-grow: 1; }
-        .badge-info { display: flex; flex-direction: column; align-items: flex-start; margin-right: 40px; min-width: 140px; }
-        .fecha-tag { color: #64748b; font-size: 1.2rem; font-weight: bold; text-transform: uppercase; }
-        .hora-tag { color: #10b981; font-size: 2.2rem; font-weight: bold; }
-        .sala-tag { background: #f59e0b; color: #000000; padding: 8px 20px; border-radius: 8px; font-weight: 900; font-size: 1.8rem; min-width: 150px; text-align: center; }
-        footer { margin-top: auto; text-align: center; padding-top: 15px; }
+        .proximo-card { border-left: 10px solid #10b981; }
+        
+        .info-principal { font-size: 2.3rem; font-weight: bold; flex-grow: 1; padding-right: 20px; line-height: 1.2; }
+        .badge-info { display: flex; flex-direction: column; align-items: flex-start; margin-right: 40px; min-width: 160px; }
+        .fecha-tag { color: #94a3b8; font-size: 1.2rem; font-weight: bold; text-transform: uppercase; }
+        .hora-tag { color: #3b82f6; font-size: 2.2rem; font-weight: bold; }
+        .proximo-card .hora-tag { color: #10b981; }
+        
+        .sala-tag { background: #f59e0b; color: #000000; padding: 8px 20px; border-radius: 8px; font-weight: 900; font-size: 1.8rem; min-width: 180px; text-align: center; }
+        
+        footer { margin-top: auto; text-align: center; padding-top: 15px; border-top: 2px solid #1e293b; }
         .logo-ugm { max-width: 260px; filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.3)); }
-        .vacio { text-align: center; font-size: 2rem; color: #475569; margin-top: 50px; }
+        .vacio { text-align: center; font-size: 2.5rem; color: #475569; margin-top: 100px; font-weight: bold; }
     </style>
 </head>
 <body>
 
     <header>
-        <h1 id="titulo-cartelera">Cargando Cartelera...</h1>
+        <h1 id="titulo-cartelera">Próximos Eventos y Actividades</h1>
         <div id="reloj">00:00:00</div>
     </header>
 
-    <div id="pantalla">
-        </div>
+    <div id="contenedor-pantalla">
+        <div id="pantalla">
+            </div>
+    </div>
 
     <footer>
         <img class="logo-ugm" src="logo-blanco-celeste.png" alt="Logo UGM">
     </footer>
 
     <script>
-        // Reloj integrado
+        // Reloj en tiempo real
         function moverReloj() {
             const momento = new Date();
             document.getElementById('reloj').textContent = momento.toLocaleTimeString('es-CL', { hour12: false });
@@ -49,25 +57,20 @@
         setInterval(moverReloj, 1000);
         moverReloj();
 
-        let vistaActual = "HOY";
+        let scrollInterval;
 
         async function renderizarCartelera() {
             try {
                 const ahora = new Date();
                 const pantalla = document.getElementById('pantalla');
-                const titulo = document.getElementById('titulo-cartelera');
 
-                // Petición al backend en Netlify
+                // Petición de datos al backend en Netlify
                 const respuesta = await fetch('https://caleugm.netlify.app/.netlify/functions/cartelera?t=' + new Date().getTime());
-                
-                if (!respuesta.ok) {
-                    throw new Error('El servidor de Netlify devolvió un error ' + respuesta.status);
-                }
+                if (!respuesta.ok) throw new Error('Error ' + respuesta.status);
 
-                // UNICA DECLARACIÓN DE ITEMS (Corregido el error de duplicidad)
                 const items = await respuesta.json();
+                let eventosValidos = [];
 
-                let eventosFiltrados = [];
                 const opcionesChile = { timeZone: 'America/Santiago', year: 'numeric', month: 'numeric', day: 'numeric' };
                 const hoyChileString = ahora.toLocaleDateString('es-CL', opcionesChile);
 
@@ -76,40 +79,38 @@
                     if (fields.EventDate) {
                         const fechaEvento = new Date(fields.EventDate);
                         
-                        // Parche de la sala UGM para mapear la columna codificada
-                        const salaNombre = fields["U_x002e_G_x002e_M_x0020_Sala"] || fields.Location || "Por definir";
+                        // FILTRO: Muestra el evento si es de hoy o del futuro (oculta los antiguos de hace más de 2 horas)
+                        if (fechaEvento.getTime() >= (ahora.getTime() - 7200000)) {
+                            const salaNombre = fields["U_x002e_G_x002e_M_x0020_Sala"] || fields.Location || "Por definir";
+                            const evChileString = fechaEvento.toLocaleDateString('es-CL', opcionesChile);
 
-                        const ev = {
-                            asunto: fields.Title || 'Evento sin título',
-                            sala: salaNombre,
-                            hora_inicio: fechaEvento
-                        };
-
-                        const evChileString = fechaEvento.toLocaleDateString('es-CL', opcionesChile);
-
-                        if (vistaActual === "HOY") {
-                            if (evChileString === hoyChileString) {
-                                eventosFiltrados.push(ev);
-                            }
+                            eventosValidos.push({
+                                asunto: fields.Title || fields.Title0 || 'Evento sin título',
+                                sala: salaNombre,
+                                hora_inicio: fechaEvento,
+                                esHoy: evChileString === hoyChileString
+                            });
                         }
                     }
                 });
 
-                // Cambiar el título superior según el estado
-                titulo.textContent = vistaActual === "HOY" ? "Eventos de Hoy" : "Eventos de la Semana";
+                // Ordenar cronológicamente (primero lo más cercano)
+                eventosValidos.sort((a, b) => a.hora_inicio - b.hora_inicio);
 
-                if (eventosFiltrados.length === 0) {
-                    pantalla.innerHTML = `<div class="vacio">No hay eventos programados para hoy</div>`;
+                if (eventosValidos.length === 0) {
+                    pantalla.innerHTML = `<div class="vacio">No hay eventos programados para los próximos días</div>`;
+                    if (scrollInterval) clearInterval(scrollInterval);
+                    pantalla.style.transform = `translateY(0px)`;
                     return;
                 }
 
                 pantalla.innerHTML = "";
-                eventosFiltrados.forEach(ev => {
+                eventosValidos.forEach(ev => {
                     const horaTexto = ev.hora_inicio.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false });
-                    const fechaTexto = ev.hora_inicio.toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric' });
+                    const fechaTexto = ev.esHoy ? "Hoy" : ev.hora_inicio.toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric', month: 'short' });
 
                     const card = document.createElement('div');
-                    card.className = `evento-card ${vistaActual === "HOY" ? 'hoy-card' : 'semana-card'}`;
+                    card.className = `evento-card ${ev.esHoy ? 'hoy-card' : 'proximo-card'}`;
                     
                     card.innerHTML = `
                         <div class="badge-info">
@@ -122,14 +123,47 @@
                     pantalla.appendChild(card);
                 });
 
+                // Activar auto-scroll si los eventos superan el alto de la pantalla
+                ajustarAutoScroll();
+
             } catch (error) {
                 console.error(error);
-                document.getElementById('pantalla').innerHTML = `<div class="vacio" style="color: #ef4444;">⚠️ Error al sincronizar con SharePoint</div>`;
+                document.getElementById('pantalla').innerHTML = `<div class="vacio" style="color: #ef4444;">⚠️ Error de conexión con SharePoint</div>`;
             }
         }
 
-        // Sistema de rotación y carga cada 30 segundos
-        setInterval(renderizarCartelera, 30000);
+        // Lógica de Scroll por bloques mecánicos
+        function ajustarAutoScroll() {
+            if (scrollInterval) clearInterval(scrollInterval);
+
+            const contenedor = document.getElementById('contenedor-pantalla');
+            const pantalla = document.getElementById('pantalla');
+            
+            let posicionActual = 0;
+            const altoContenedor = contenedor.clientHeight;
+
+            scrollInterval = setInterval(() => {
+                const altoContenido = pantalla.scrollHeight;
+
+                // Si todo el texto cabe en la pantalla actual, no se mueve
+                if (altoContenido <= altoContenedor) return;
+
+                posicionActual += (altoContenedor - 40); // Baja casi un bloque completo
+
+                if (posicionActual >= altoContenido) {
+                    // Si llegó al fondo, espera un momento y vuelve arriba de golpe
+                    setTimeout(() => {
+                        posicionActual = 0;
+                        pantalla.style.transform = `translateY(0px)`;
+                    }, 2000);
+                } else {
+                    pantalla.style.transform = `translateY(-${posicionActual}px)`;
+                }
+            }, 8000); // Avanza de bloque cada 8 segundos
+        }
+
+        // Ejecutar carga inicial y actualizar cada 1 minuto
+        setInterval(renderizarCartelera, 60000);
         renderizarCartelera();
     </script>
 </body>
