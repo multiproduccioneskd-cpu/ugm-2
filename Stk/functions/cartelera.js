@@ -1,63 +1,79 @@
+const axios = require('axios');
+
 exports.handler = async function(event, context) {
-    const TENANT_ID = "05970e72-c674-4f1f-8033-6e35dd7f76aa";
-    const CLIENT_ID = "ceee9a3e-aa63-419c-960a-321e8726fd65";
-    const CLIENT_SECRET = "Lfk8Q~-8lvREUP6Amzkd_7mdAT4Z1o16OdF8PazH";
-    const SITE_ID = "ugmchile.sharepoint.com,0aaa32cc-4ad1-4d99-9ee6-78ede7cfff66,a582523d-6b22-417e-bf2b-5b8b7b7fd3e7";
-    const LIST_ID = "aa1e422f-858d-4b84-a386-69ad7d09ec34";
+    // Evitar errores de CORS si se consulta desde otro dominio
+    if (event.httpMethod === "OPTIONS") {
+        return {
+            statusCode: 200,
+            headers: {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "Content-Type",
+                "Access-Control-Allow-Methods": "GET, OPTIONS"
+            },
+            body: ""
+        };
+    }
 
     try {
-        // 1. Obtener Token automáticamente
+        const TENANT_ID = process.env.TENANT_ID;
+        const CLIENT_ID = process.env.CLIENT_ID;
+        const CLIENT_SECRET = process.env.CLIENT_SECRET;
+        const SITE_ID = process.env.SITE_ID;
+        const LIST_ID = process.env.LIST_ID;
+
+        // 1. Obtener Token de Acceso de Microsoft Graph
         const tokenUrl = `https://login.microsoftonline.com/${TENANT_ID}/oauth2/v2.0/token`;
         const params = new URLSearchParams();
         params.append('client_id', CLIENT_ID);
-        params.append('client_secret', CLIENT_SECRET);
         params.append('scope', 'https://graph.microsoft.com/.default');
+        params.append('client_secret', CLIENT_SECRET);
         params.append('grant_type', 'client_credentials');
 
-        const tokenRes = await fetch(tokenUrl, { method: 'POST', body: params, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
-        if (!tokenRes.ok) throw new Error("Error obteniendo token");
-        const tokenData = await tokenRes.json();
-        const token = tokenData.access_token;
+        const tokenResponse = await axios.post(tokenUrl, params);
+        const accessToken = tokenResponse.data.access_token;
 
-        // 2. Consultar SharePoint
+        // 2. Consultar los ítems de la lista expandiendo los 'fields'
         const graphUrl = `https://graph.microsoft.com/v1.0/sites/${SITE_ID}/lists/${LIST_ID}/items?expand=fields`;
-        const graphRes = await fetch(graphUrl, { headers: { 'Authorization': `Bearer ${token}` } });
-        if (!graphRes.ok) throw new Error("Error leyendo SharePoint");
-        
-        const graphData = await graphRes.json();
-        const rawItems = graphData.value || [];
+        const graphResponse = await axios.get(graphUrl, {
+            headers: { Authorization: `Bearer ${accessToken}` }
+        });
 
-        // 3. Procesar mapeando la columna real de la UGM
+        const rawItems = graphResponse.data.value || [];
+
+        // 3. Procesar y limpiar el JSON mapeando las columnas de la UGM
         const eventosProcesados = rawItems.map(item => {
             const f = item.fields || {};
             
-            // Pescamos la columna exacta que nos reveló tu token
+            // Mapeamos la columna codificada de la sala UGM
             let salaReal = f["U_x002e_G_x002e_M_x0020_Sala"] || f.Location || "Por definir";
+            
+            // Buscamos la fecha en las distintas variables posibles de SharePoint
+            let fechaReal = f.EventDate || f.EventDateTime || f.StartDate || f.Fecha || "";
 
             return {
-                fields: {
-                    Title: f.Title || "Actividad sin asunto",
-                    Location: salaReal,
-                    EventDate: f.EventDate || ""
-                }
+                title: f.Title || f.Title0 || f.LinkTitle || "Evento sin título",
+                sala: salaReal,
+                fecha: fechaReal
             };
         });
 
+        // 4. Retornar la respuesta limpia al Frontend
         return {
             statusCode: 200,
-            headers: { 
-                "Content-Type": "application/json", 
+            headers: {
                 "Access-Control-Allow-Origin": "*",
-                "Cache-Control": "no-cache, no-store, must-revalidate"
+                "Access-Control-Allow-Headers": "Content-Type",
+                "Access-Control-Allow-Methods": "GET, OPTIONS"
             },
             body: JSON.stringify(eventosProcesados)
         };
 
     } catch (error) {
+        console.error("Error en la función cartelera:", error);
         return {
             statusCode: 500,
-            headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-            body: JSON.stringify({ error: error.message })
+            headers: { "Access-Control-Allow-Origin": "*" },
+            body: JSON.stringify({ error: error.message, detalle: error.response ? error.response.data : null })
         };
     }
 };
