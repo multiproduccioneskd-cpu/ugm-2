@@ -22,7 +22,7 @@
             opacity: 1;
         }
 
-        /* Clases de control para los efectos de transicion suaves */
+        /* Clases de control para los efectos de transición suaves */
         .fade-out { opacity: 0 !important; }
         .fade-in { opacity: 1 !important; }
         
@@ -72,13 +72,10 @@
         let scrollInterval;
         let datosLocales = []; 
 
-        // 1. Petición principal apuntando directo al nuevo backend en Vercel
+        // 1. Petición principal usando ruta relativa nativa de Vercel
         async function actualizarDatosSharePoint() {
             try {
-                // NOTA: Reemplaza esta URL por la que te entregó Vercel en tu panel (debe terminar en /api/cartelera)
-                const urlVercel = 'https://ugm-2.vercel.app/api/cartelera'; 
-                
-                const respuesta = await fetch(urlVercel + '?t=' + new Date().getTime());
+                const respuesta = await fetch('/api/cartelera?t=' + new Date().getTime());
                 if (!respuesta.ok) throw new Error('Error ' + respuesta.status);
                 datosLocales = await respuesta.json();
                 
@@ -103,7 +100,6 @@
 
             if (datosLocales && datosLocales.length > 0) {
                 datosLocales.forEach(item => {
-                    // Parche: Si viene sin fecha por cacho de sincronización, le asume hoy para pruebas
                     const fechaEvento = item.fecha ? new Date(item.fecha) : new Date();
                     
                     if (!isNaN(fechaEvento.getTime())) {
@@ -116,19 +112,16 @@
                         };
 
                         if (vistaActual === "HOY") {
-                            // Ventana HOY: Calza exactamente el día calendario
                             if (evChileString === hoyChileString) {
                                 eventosFiltrados.push(ev);
                             }
                         } else {
-                            // Ventana PROXIMOS: Días posteriores en adelante
                             if (evChileString !== hoyChileString) {
                                 eventosFiltrados.push(ev);
                             }
                         }
                     }
                 });
-                // Ordenar cronológicamente por hora/fecha de inicio
                 eventosFiltrados.sort((a, b) => a.hora_inicio - b.hora_inicio);
             }
 
@@ -137,7 +130,7 @@
 
             setTimeout(() => {
                 pantalla.innerHTML = "";
-                pantalla.style.transform = `translateY(0px)`; // Reinicia el scroll al tope de la lista
+                pantalla.style.transform = `translateY(0px)`; // Reinicia el scroll al tope
 
                 if (eventosFiltrados.length === 0) {
                     pantalla.innerHTML = vistaActual === "HOY" 
@@ -163,17 +156,16 @@
                         pantalla.appendChild(card);
                     });
 
-                    // Si desborda el alto de la pantalla, activa el auto-scroll automático
                     ajustarAutoScrollInterno();
                 }
 
-                // GATILLAR EL EFECTO FADE IN (Mostrar suave con la lista ya armada)
+                // GATILLAR EL EFECTO FADE IN (Mostrar suave)
                 pantalla.classList.remove('fade-out');
                 pantalla.classList.add('fade-in');
-            }, 500); // Duración exacta de la transición de opacidad CSS
+            }, 500);
         }
 
-        // 3. Sistema de scroll mecánico automático por bloques
+        // 3. Sistema de scroll mecánico automático por bloques de pantalla
         function ajustarAutoScrollInterno() {
             if (scrollInterval) clearInterval(scrollInterval);
             const contenedor = document.getElementById('contenedor-pantalla');
@@ -184,26 +176,26 @@
             scrollInterval = setInterval(() => {
                 const altoContenido = pantalla.scrollHeight;
                 if (altoContenido <= altoContenedor) return;
-                posicionActual += (altoContenedor - 40); // Avanza un bloque de pantalla menos margen
+                posicionActual += (altoContenedor - 40);
 
                 if (posicionActual >= altoContenido) {
                     setTimeout(() => {
                         posicionActual = 0;
                         pantalla.style.transform = `translateY(0px)`;
-                    }, 2000); // 2 segundos de pausa abajo antes de saltar arriba de golpe
+                    }, 2000); // 2 segundos de pausa abajo antes de resetear
                 } else {
                     pantalla.style.transform = `translateY(-${posicionActual}px)`;
                 }
-            }, 8000); // Avanza de bloque cada 8 segundos
+            }, 8000); // Salta de bloque cada 8 segundos
         }
 
-        // 4. Temporizador de rotación bimodal: Alterna la vista cada 15 segundos exactos
+        // 4. Temporizador bimodal: Alterna la vista cada 15 segundos exactos
         setInterval(() => {
             vistaActual = (vistaActual === "HOY") ? "SEMANA" : "HOY";
             procesarYMostrarVista();
         }, 15000);
 
-        // Ciclo continuo: Actualiza los datos de SharePoint en segundo plano cada 1 minuto
+        // Ciclo continuo: Actualiza los datos de SharePoint cada 1 minuto
         setInterval(actualizarDatosSharePoint, 60000); 
         actualizarDatosSharePoint();
     </script>
