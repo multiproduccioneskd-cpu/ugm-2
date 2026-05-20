@@ -5,11 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cartelera de Eventos UGM</title>
     <style>
+        /* --- ESTILOS BASE (MÓVILES O PANTALLAS PEQUEÑAS) --- */
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
         }
+        
+        /* Definimos un tamaño de letra base que se puede escalar */
+        html {
+            font-size: 16px; 
+        }
+        
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #0b192f;
@@ -164,10 +171,57 @@
             margin-top: 15vh;
             width: 100%;
         }
+
+        /* --- 🚀 OPTIMIZACIÓN AUTOMÁTICA PARA TV 55" (Pantallas grandes) --- */
+        /* Detectamos si la pantalla es más ancha que 1900px (típico de TVs Full HD o 4K) */
+        @media screen and (min-width: 1900px) {
+            
+            /* Reducimos el tamaño de letra base un 20% para compensar el escalado de la TV */
+            html {
+                font-size: 13px; /* Antes 16px */
+            }
+            
+            /* Hacemos los elementos del header un poco más compactos */
+            header {
+                padding: 15px 0px; 
+            }
+            .logo-u, .logo-centro {
+                height: 55px; /* Antes 65px */
+            }
+            header h1 {
+                font-size: 2.4rem; /* Antes 2.8rem */
+            }
+            #current-time {
+                font-size: 2.2rem; /* Antes 2.5rem */
+            }
+            
+            /* Reducimos el relleno de las tarjetas para que quepan más en vertical */
+            main {
+                padding: 20px;
+            }
+            .container {
+                gap: 15px; /* Menos espacio entre tarjetas */
+            }
+            .event-card {
+                padding: 20px 35px; /* Menos relleno interno */
+                border-left-width: 10px;
+            }
+            .event-title {
+                font-size: 2.2rem; /* Antes 2.6rem */
+            }
+            .event-room {
+                font-size: 1.5rem; /* Antes 1.8rem */
+                padding: 6px 20px;
+            }
+            .event-time {
+                font-size: 2.8rem; /* Antes 3.2rem */
+                padding: 10px 25px;
+                min-width: 180px;
+            }
+        }
     </style>
 </head>
 <body>
-
     <header>
         <div class="header-left">
             <img src="https://www.ugm.cl/images/logo.png" alt="UGM" class="logo-u">
