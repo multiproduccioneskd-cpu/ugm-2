@@ -26,8 +26,7 @@ module.exports = async function handler(req, res) {
         const tokenData = await tokenRes.json();
         const accessToken = tokenData.access_token;
 
-        // Consultamos la lista de SharePoint
-        const graphUrl = `https://graph.microsoft.com/v1.0/sites/ugmchile.sharepoint.com:/sites/Calen:/lists/lista%20calen/items?expand=fields&$top=5`;
+        const graphUrl = `https://graph.microsoft.com/v1.0/sites/ugmchile.sharepoint.com:/sites/Calen:/lists/lista%20calen/items?expand=fields&$top=100`;
         const graphRes = await fetch(graphUrl, {
             method: 'GET',
             headers: { 'Authorization': `Bearer ${accessToken}`, 'Accept': 'application/json' }
@@ -37,15 +36,23 @@ module.exports = async function handler(req, res) {
         const graphData = await graphRes.json();
         const rawItems = graphData.value || [];
 
-        // HACK DE INSPECCIÓN: Mandamos las entrañas completas del primer ítem para pillar los campos ocultos
-        if (rawItems.length > 0) {
-            return res.status(200).json({
-                _INSPECCION_RAIZ: Object.keys(rawItems[0]),
-                _INSPECCION_FIELDS: rawItems[0].fields || {}
-            });
-        }
+        const eventosNormalizados = rawItems.map(item => {
+            const f = item.fields || {};
+            
+            // Pescamos la columna Unicode exacta de la sala
+            let salaReal = f.Ubicaci_x00f3_n || f.Sala || f.Ubicacion || "Por definir";
+            
+            // Pescamos la columna real de la fecha del evento
+            let casillaTiempo = f.Inicio || "";
 
-        return res.status(200).json({ mensaje: "Lista vacía" });
+            return {
+                title: f.Title || f.LinkTitle || "Evento sin título",
+                sala: salaReal,
+                casillaTiempo: casillaTiempo
+            };
+        });
+
+        return res.status(200).json(eventosNormalizados);
 
     } catch (error) {
         return res.status(500).json({ error: true, mensaje: error.message });
