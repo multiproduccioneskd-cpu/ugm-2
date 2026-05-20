@@ -32,8 +32,6 @@
             display: flex;
             align-items: center;
             gap: 15px;
-            padding-left: 0px; 
-            margin-left: 0px;
         }
         .logo-u {
             height: 65px;
@@ -228,11 +226,11 @@
                     return;
                 }
 
-                // Control de tiempo puro en Santiago de Chile
-                const hoyChileString = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' }); // "YYYY-MM-DD"
-                const horaChileString = new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Santiago' }); // "HH:MM"
+                // Obtener fecha y hora actual en Santiago (Formato ISO manual para comparar peras con peras)
+                const hoyChileString = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' }); 
+                const horaChileString = new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Santiago' });
 
-                // Procesamos picando la "casillaTiempo" con la T
+                // Procesamos aislando los componentes de texto puros
                 const listaProcesada = eventosRaw.map(ev => {
                     let fechaTexto = "9999-12-31";
                     let horaTexto = "00:00";
@@ -241,21 +239,15 @@
                     if (ev.casillaTiempo && typeof ev.casillaTiempo === 'string') {
                         const partes = ev.casillaTiempo.split('T');
                         if (partes[0] && partes[1]) {
-                            fechaTexto = partes[0]; // Captura el "YYYY-MM-DD"
+                            fechaTexto = partes[0]; // Extrae "YYYY-MM-DD"
                             esHoy = (fechaTexto === hoyChileString);
                             
+                            // SIN SUMA MANUAL: Tomamos la hora exacta que metieron en SharePoint
                             const subPartesHora = partes[1].split(':');
-                            let horaOriginal = parseInt(subPartesHora[0], 10);
-                            let minutosOriginales = subPartesHora[1] || "00";
-
-                            if (!isNaN(horaOriginal)) {
-                                // Sumamos las 4 horas fijas de desfase que manda Microsoft Graph
-                                let horaAjustada = (horaOriginal + 4) % 24;
-                                if (parseInt(minutosOriginales, 10) > 0 && parseInt(minutosOriginales, 10) < 10) {
-                                    minutosOriginales = "00";
-                                }
-                                horaTexto = `${String(horaAjustada).padStart(2, '0')}:${minutosOriginales}`;
-                            }
+                            const horaOriginal = subPartesHora[0] || "00";
+                            const minutosOriginales = subPartesHora[1] || "00";
+                            
+                            horaTexto = `${horaOriginal.padStart(2, '0')}:${minutosOriginales.padStart(2, '0')}`;
                         }
                     }
 
@@ -272,26 +264,25 @@
 
                 if (modoVistaSemanas) {
                     tituloSeccion.innerText = "PRÓXIMOS EVENTOS";
-                    // REGLA: Excluye hoy al 100% y muestra los días futuros cronológicamente
                     muestraFinal = listaProcesada.filter(ev => !ev.esHoy && ev.fechaStr > hoyChileString);
                 } else {
                     tituloSeccion.innerText = "EVENTOS DE HOY";
-                    // REGLA: Solo la fecha de hoy, y esconde los eventos cuya hora ya pasó
+                    // Filtra eventos de hoy que aún no terminen/pasen de la hora actual
                     muestraFinal = listaProcesada.filter(ev => ev.esHoy && ev.hora >= horaChileString);
                 }
 
-                // Parche por si la pantalla de hoy se queda vacía
+                // Parche automático: Si la vista de hoy está vacía, rota a los próximos de una
                 if (muestraFinal.length === 0 && !modoVistaSemanas) {
                     tituloSeccion.innerText = "PRÓXIMOS EVENTOS";
                     muestraFinal = listaProcesada.filter(ev => !ev.esHoy && ev.fechaStr > hoyChileString);
                 }
 
                 if (muestraFinal.length === 0) {
-                    container.innerHTML = '<div class="no-events">No hay más eventos programados para esta semana</div>';
+                    container.innerHTML = '<div class="no-events">No hay más eventos programados</div>';
                     return;
                 }
 
-                // Ordenamos por texto puro combinando Fecha + Hora
+                // Ordenamos cronológicamente usando strings puros
                 muestraFinal.sort((a, b) => `${a.fechaStr}T${a.hora}`.localeCompare(`${b.fechaStr}T${b.hora}`));
 
                 container.innerHTML = '';
