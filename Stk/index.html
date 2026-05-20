@@ -234,9 +234,12 @@
                     return;
                 }
 
-                // Fecha de hoy limpia en formato Santiago de Chile (YYYY-MM-DD)
+                // Capturamos el String puro de la fecha de hoy en Santiago (YYYY-MM-DD)
                 const hoyChileString = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
-                const ahoraMiliChile = new Date().getTime();
+                
+                // Calculamos el timestamp de este minuto exacto en Chile
+                const ahoraChileObj = new Date(new Date().toLocaleString("en-US", {timeZone: "America/Santiago"}));
+                const ahoraMiliChile = ahoraChileObj.getTime();
 
                 const datosProcesados = items.map(item => {
                     const f = item.fields || {};
@@ -264,22 +267,23 @@
                     let timestampOrden = 9999999999999;
                     let esHoy = false;
 
-                    const fechaCruda = f["EventDate"] || f["EventDateTime"] || f["StartDate"] || f["Modified"] || "";
+                    // OBLIGATORIO: Forzamos la lectura desde EventDate (La fecha real del evento del calendario)
+                    const fechaCruda = f["EventDate"] || f["StartDate"] || f["EventDateTime"] || "";
                     
                     if (fechaCruda && typeof fechaCruda === 'string') {
                         const partes = fechaCruda.split('T');
                         if (partes[0] && partes[1]) {
-                            fechaTexto = partes[0]; // YYYY-MM-DD crudo de base de datos
+                            fechaTexto = partes[0]; // Captura "2026-05-22" o "2026-05-25"
                             
-                            // VALIDACIÓN INMUNE DE DÍA: Comparamos texto puro de calendario vs texto puro de hoy chile
-                            esHoy = fechaTexto === hoyChileString;
+                            // FILTRO CRUGO ANTI-BUGS: Compara texto plano exacto contra el día actual de Santiago
+                            esHoy = (fechaTexto === hoyChileString);
                             
                             const subPartesHora = partes[1].split(':');
                             let horaOriginal = parseInt(subPartesHora[0], 10);
                             let minutosOriginales = subPartesHora[1] || "00";
 
                             if (!isNaN(horaOriginal)) {
-                                // Sumamos las 4 horas de desfase directo sobre el entero
+                                // Desfase nativo de Microsoft Graph (+4 horas)
                                 let horaAjustada = (horaOriginal + 4) % 24;
                                 
                                 if (parseInt(minutosOriginales, 10) > 0 && parseInt(minutosOriginales, 10) < 10) {
@@ -288,7 +292,7 @@
                                 
                                 horaTexto = `${String(horaAjustada).padStart(2, '0')}:${minutosOriginales}`;
                                 
-                                // Creamos un objeto Date local forzado para que el navegador ordene las tarjetas bien de arriba a abajo
+                                // Construimos fecha local exacta para ordenar las tarjetas en la pantalla sin desfase UTC
                                 const [aaaa, mes, dd] = fechaTexto.split('-');
                                 const localDateObj = new Date(parseInt(aaaa,10), parseInt(mes,10) - 1, parseInt(dd,10), horaAjustada, parseInt(minutosOriginales,10), 0);
                                 timestampOrden = localDateObj.getTime();
@@ -310,15 +314,15 @@
 
                 if (modoVistaSemanas) {
                     tituloSeccion.innerText = "PRÓXIMOS EVENTOS";
-                    // PRÓXIMOS: Excluye estrictamente HOY, solo toma eventos de fechas futuras en cascada
+                    // PRÓXIMOS: Excluye al 100% el string de hoy, pateando el viernes y lunes a la otra vista
                     eventosAMostrar = datosProcesados.filter(ev => !ev.esHoy && ev.ts >= ahoraMiliChile);
                 } else {
                     tituloSeccion.innerText = "EVENTOS DE HOY";
-                    // HOY: Solo lo que pertenece a la fecha de hoy y que no haya vencido por más de 10 minutos
+                    // HOY: Pasa solo si el texto calza idéntico con hoy y falten más de 10 minutos para que termine
                     eventosAMostrar = datosProcesados.filter(ev => ev.esHoy && ev.ts >= (ahoraMiliChile - 10 * 60 * 1000));
                 }
 
-                // Parche automático por si hoy ya no quedan eventos vigentes
+                // Si hoy no hay nada agendado, se salta el switch y muestra Próximos al tiro
                 if (eventosAMostrar.length === 0 && !modoVistaSemanas) {
                     tituloSeccion.innerText = "PRÓXIMOS EVENTOS";
                     eventosAMostrar = datosProcesados.filter(ev => !ev.esHoy && ev.ts >= ahoraMiliChile);
@@ -329,7 +333,7 @@
                     return;
                 }
 
-                // Ordenar cronológicamente impecable
+                // Ordenación por tiempo lineal
                 eventosAMostrar.sort((a, b) => a.ts - b.ts);
 
                 container.innerHTML = '';
