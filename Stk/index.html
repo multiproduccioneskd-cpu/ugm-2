@@ -32,16 +32,22 @@
             display: flex;
             align-items: center;
             gap: 15px;
+            padding-left: 0px; 
+            margin-left: 0px;
         }
         .logo-u {
             height: 65px;
             width: auto;
+            margin-left: 0px;
+            padding-left: 0px;
         }
         header h1 {
             font-size: 2.8rem;
             text-transform: uppercase;
             letter-spacing: 1px;
             font-weight: 800;
+            padding-left: 0px;
+            margin-left: 0px;
         }
         #right-header {
             display: flex;
@@ -226,35 +232,36 @@
                     return;
                 }
 
-                // Fecha y Hora de control de hoy en Chile
+                // Obtener fecha y hora actual de Chile en texto crudo
                 const hoyChileString = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' }); 
                 const horaChileString = new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Santiago' });
 
+                // Procesamos aplicando la guillotina de texto inmune
                 const listaProcesada = eventosRaw.map(ev => {
                     let fechaTexto = "9999-12-31";
                     let horaTexto = "00:00";
                     let esHoy = false;
 
                     if (ev.casillaTiempo && typeof ev.casillaTiempo === 'string') {
-                        // Creamos un objeto Date nativo interpretando la estampa UTC que manda Graph
-                        const dateObjeto = new Date(ev.casillaTiempo);
-                        
-                        if (!isNaN(dateObjeto.getTime())) {
-                            // Le restamos las 2 horas de desfase directo al objeto de tiempo nativo
-                            dateObjeto.setHours(dateObjeto.getHours() - 2);
-                            
-                            // Extraemos año, mes y día limpios
-                            const anio = dateObjeto.getFullYear();
-                            const mes = String(dateObjeto.getMonth() + 1).padStart(2, '0');
-                            const dia = String(dateObjeto.getDate()).padStart(2, '0');
-                            fechaTexto = `${anio}-${mes}-${dia}`;
-                            
+                        const partes = ev.casillaTiempo.split('T');
+                        if (partes[0] && partes[1]) {
+                            fechaTexto = partes[0]; // Captura el "YYYY-MM-DD"
                             esHoy = (fechaTexto === hoyChileString);
                             
-                            // Extraemos las horas y minutos exactos ya arreglados
-                            const hrs = String(dateObjeto.getHours()).padStart(2, '0');
-                            const mins = String(dateObjeto.getMinutes()).padStart(2, '0');
-                            horaTexto = `${hrs}:${mins}`;
+                            // Guillotina e inyección matemática de texto limpia
+                            const subPartesHora = partes[1].split(':');
+                            let horaOriginal = parseInt(subPartesHora[0], 10);
+                            let minutosOriginales = subPartesHora[1] || "00";
+
+                            if (!isNaN(horaOriginal)) {
+                                // RESTA INTEGRAL DE 2 HORAS: Inmune a números negativos o quiebres de medianoche
+                                let horaAjustada = (horaOriginal - 2 + 24) % 24;
+                                
+                                // Limpiamos segundos o caracteres residuales si los hubiera
+                                let minsLimpios = minutosOriginales.substring(0, 2);
+                                
+                                horaTexto = `${String(horaAjustada).padStart(2, '0')}:${minsLimpios}`;
+                            }
                         }
                     }
 
@@ -287,6 +294,7 @@
                     return;
                 }
 
+                // Ordenamos cronológicamente de forma perfecta
                 muestraFinal.sort((a, b) => `${a.fechaStr}T${a.hora}`.localeCompare(`${b.fechaStr}T${b.hora}`));
 
                 container.innerHTML = '';
