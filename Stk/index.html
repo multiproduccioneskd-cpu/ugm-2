@@ -220,31 +220,51 @@
                 const response = await fetch(`https://ugm-2.vercel.app/api/cartelera?nocache=${Date.now()}`);
                 if (!response.ok) throw new Error('Error API');
                 
-                const eventosBackend = await response.json();
+                const eventosRaw = await response.json();
                 container.innerHTML = '';
                 
-                if (!eventosBackend || eventosBackend.length === 0 || eventosBackend.error) {
-                    container.innerHTML = '<div class="no-events">No hay más eventos programados</div>';
+                if (!eventosRaw || eventosRaw.length === 0 || eventosRaw.error) {
+                    container.innerHTML = '<div class="no-events">No hay eventos registrados en SharePoint</div>';
                     return;
                 }
 
-                // Obtener el String de hoy en Santiago (YYYY-MM-DD)
-                const hoyChile = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
-                const horaChile = new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Santiago' });
+                // Control de tiempo puro en Santiago de Chile
+                const hoyChileString = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' }); // "YYYY-MM-DD"
+                const horaChileString = new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Santiago' }); // "HH:MM"
 
-                // Procesamos aislando los textos para que la casilla única no cause mareos
-                const listaLimpia = eventosBackend.map(ev => {
-                    // Si el backend ya procesó los campos individuales, los usamos directamente
-                    let fStr = ev.fechaStr || "9999-12-31";
-                    let hStr = ev.hora || "00:00";
-                    let esDeHoy = ev.esHoy || false;
+                // Procesamos picando la "casillaTiempo" con la T
+                const listaProcesada = eventosRaw.map(ev => {
+                    let fechaTexto = "9999-12-31";
+                    let horaTexto = "00:00";
+                    let esHoy = false;
+
+                    if (ev.casillaTiempo && typeof ev.casillaTiempo === 'string') {
+                        const partes = ev.casillaTiempo.split('T');
+                        if (partes[0] && partes[1]) {
+                            fechaTexto = partes[0]; // Captura el "YYYY-MM-DD"
+                            esHoy = (fechaTexto === hoyChileString);
+                            
+                            const subPartesHora = partes[1].split(':');
+                            let horaOriginal = parseInt(subPartesHora[0], 10);
+                            let minutosOriginales = subPartesHora[1] || "00";
+
+                            if (!isNaN(horaOriginal)) {
+                                // Sumamos las 4 horas fijas de desfase que manda Microsoft Graph
+                                let horaAjustada = (horaOriginal + 4) % 24;
+                                if (parseInt(minutosOriginales, 10) > 0 && parseInt(minutosOriginales, 10) < 10) {
+                                    minutosOriginales = "00";
+                                }
+                                horaTexto = `${String(horaAjustada).padStart(2, '0')}:${minutosOriginales}`;
+                            }
+                        }
+                    }
 
                     return {
-                        title: ev.title,
-                        sala: ev.sala,
-                        hora: hStr,
-                        fechaStr: fStr,
-                        esHoy: esDeHoy
+                        title: ev.title || "Evento sin título",
+                        sala: ev.sala || "Por definir",
+                        hora: horaTexto,
+                        fechaStr: fechaTexto,
+                        esHoy: esHoy
                     };
                 });
 
@@ -252,25 +272,26 @@
 
                 if (modoVistaSemanas) {
                     tituloSeccion.innerText = "PRÓXIMOS EVENTOS";
-                    // PRÓXIMOS: Excluye estrictamente hoy, y toma fechas mayores en orden alfabético de texto
-                    muestraFinal = listaLimpia.filter(ev => !ev.esHoy && ev.fechaStr > hoyChile);
+                    // REGLA: Excluye hoy al 100% y muestra los días futuros cronológicamente
+                    muestraFinal = listaProcesada.filter(ev => !ev.esHoy && ev.fechaStr > hoyChileString);
                 } else {
                     tituloSeccion.innerText = "EVENTOS DE HOY";
-                    // HOY: Solo la fecha de hoy, y horas vigentes
-                    muestraFinal = listaLimpia.filter(ev => ev.esHoy && ev.hora >= horaChile);
+                    // REGLA: Solo la fecha de hoy, y esconde los eventos cuya hora ya pasó
+                    muestraFinal = listaProcesada.filter(ev => ev.esHoy && ev.hora >= horaChileString);
                 }
 
+                // Parche por si la pantalla de hoy se queda vacía
                 if (muestraFinal.length === 0 && !modoVistaSemanas) {
                     tituloSeccion.innerText = "PRÓXIMOS EVENTOS";
-                    muestraFinal = listaLimpia.filter(ev => !ev.esHoy && ev.fechaStr > hoyChile);
+                    muestraFinal = listaProcesada.filter(ev => !ev.esHoy && ev.fechaStr > hoyChileString);
                 }
 
                 if (muestraFinal.length === 0) {
-                    container.innerHTML = '<div class="no-events">No hay más eventos programados en cartelera</div>';
+                    container.innerHTML = '<div class="no-events">No hay más eventos programados para esta semana</div>';
                     return;
                 }
 
-                // Ordenamos usando comparación de textos directos (Inmune a bugs de Date)
+                // Ordenamos por texto puro combinando Fecha + Hora
                 muestraFinal.sort((a, b) => `${a.fechaStr}T${a.hora}`.localeCompare(`${b.fechaStr}T${b.hora}`));
 
                 container.innerHTML = '';
