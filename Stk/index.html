@@ -234,15 +234,9 @@
                     return;
                 }
 
-                const ahoraChile = new Date();
-                const hoyChileString = ahoraChile.toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
-
-                const dChile = new Date(ahoraChile.toLocaleString("en-US", {timeZone: "America/Santiago"}));
-                const diaSemana = dChile.getDay(); 
-                const distanciaAlSabado = 6 - diaSemana;
-                const sabadoLimite = new Date(dChile);
-                sabadoLimite.setDate(dChile.getDate() + distanciaAlSabado);
-                sabadoLimite.setHours(23, 59, 59, 999);
+                // Fecha de hoy limpia en formato Santiago de Chile (YYYY-MM-DD)
+                const hoyChileString = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
+                const ahoraMiliChile = new Date().getTime();
 
                 const datosProcesados = items.map(item => {
                     const f = item.fields || {};
@@ -267,7 +261,7 @@
 
                     let fechaTexto = "Próximamente";
                     let horaTexto = "00:00";
-                    let timestamp = 9999999999999;
+                    let timestampOrden = 9999999999999;
                     let esHoy = false;
 
                     const fechaCruda = f["EventDate"] || f["EventDateTime"] || f["StartDate"] || f["Modified"] || "";
@@ -275,7 +269,9 @@
                     if (fechaCruda && typeof fechaCruda === 'string') {
                         const partes = fechaCruda.split('T');
                         if (partes[0] && partes[1]) {
-                            fechaTexto = partes[0]; 
+                            fechaTexto = partes[0]; // YYYY-MM-DD crudo de base de datos
+                            
+                            // VALIDACIÓN INMUNE DE DÍA: Comparamos texto puro de calendario vs texto puro de hoy chile
                             esHoy = fechaTexto === hoyChileString;
                             
                             const subPartesHora = partes[1].split(':');
@@ -283,6 +279,7 @@
                             let minutosOriginales = subPartesHora[1] || "00";
 
                             if (!isNaN(horaOriginal)) {
+                                // Sumamos las 4 horas de desfase directo sobre el entero
                                 let horaAjustada = (horaOriginal + 4) % 24;
                                 
                                 if (parseInt(minutosOriginales, 10) > 0 && parseInt(minutosOriginales, 10) < 10) {
@@ -291,9 +288,10 @@
                                 
                                 horaTexto = `${String(horaAjustada).padStart(2, '0')}:${minutosOriginales}`;
                                 
+                                // Creamos un objeto Date local forzado para que el navegador ordene las tarjetas bien de arriba a abajo
                                 const [aaaa, mes, dd] = fechaTexto.split('-');
-                                const dateObjEvent = new Date(aaaa, parseInt(mes, 10) - 1, dd, horaAjustada, parseInt(minutosOriginales, 10), 0);
-                                timestamp = dateObjEvent.getTime();
+                                const localDateObj = new Date(parseInt(aaaa,10), parseInt(mes,10) - 1, parseInt(dd,10), horaAjustada, parseInt(minutosOriginales,10), 0);
+                                timestampOrden = localDateObj.getTime();
                             }
                         }
                     }
@@ -304,39 +302,34 @@
                         hora: horaTexto,
                         fechaStr: fechaTexto,
                         esHoy: esHoy,
-                        ts: timestamp
+                        ts: timestampOrden
                     };
                 });
-
-                const marcaTiempoAhora = dChile.getTime();
-                const limiteSabadoTs = sabadoLimite.getTime();
-
-                // Filtrar solo eventos que estén vigentes en la semana (hasta el sábado)
-                const eventosVigentesSemana = datosProcesados.filter(ev => ev.ts <= limiteSabadoTs);
 
                 let eventosAMostrar = [];
 
                 if (modoVistaSemanas) {
                     tituloSeccion.innerText = "PRÓXIMOS EVENTOS";
-                    // SEPARACIÓN ESTRICTA: Excluye absolutamente todo lo de HOY, solo muestra del día siguiente en adelante
-                    eventosAMostrar = eventosVigentesSemana.filter(ev => !ev.esHoy && ev.ts >= marcaTiempoAhora);
+                    // PRÓXIMOS: Excluye estrictamente HOY, solo toma eventos de fechas futuras en cascada
+                    eventosAMostrar = datosProcesados.filter(ev => !ev.esHoy && ev.ts >= ahoraMiliChile);
                 } else {
                     tituloSeccion.innerText = "EVENTOS DE HOY";
-                    // MODO HOY: Solo lo de hoy que no haya vencido (ventana de 10 minutos de gracia)
-                    eventosAMostrar = eventosVigentesSemana.filter(ev => ev.esHoy && ev.ts >= (marcaTiempoAhora - 10 * 60 * 1000));
+                    // HOY: Solo lo que pertenece a la fecha de hoy y que no haya vencido por más de 10 minutos
+                    eventosAMostrar = datosProcesados.filter(ev => ev.esHoy && ev.ts >= (ahoraMiliChile - 10 * 60 * 1000));
                 }
 
-                // Parche automático: si la vista de hoy está vacía, saltar directo a próximos
+                // Parche automático por si hoy ya no quedan eventos vigentes
                 if (eventosAMostrar.length === 0 && !modoVistaSemanas) {
                     tituloSeccion.innerText = "PRÓXIMOS EVENTOS";
-                    eventosAMostrar = eventosVigentesSemana.filter(ev => !ev.esHoy && ev.ts >= marcaTiempoAhora);
+                    eventosAMostrar = datosProcesados.filter(ev => !ev.esHoy && ev.ts >= ahoraMiliChile);
                 }
 
                 if (eventosAMostrar.length === 0) {
-                    container.innerHTML = '<div class="no-events">No hay más eventos programados para esta semana</div>';
+                    container.innerHTML = '<div class="no-events">No hay más eventos programados en cartelera</div>';
                     return;
                 }
 
+                // Ordenar cronológicamente impecable
                 eventosAMostrar.sort((a, b) => a.ts - b.ts);
 
                 container.innerHTML = '';
@@ -347,7 +340,7 @@
                     if (!ev.esHoy && ev.fechaStr !== "Próximamente") {
                         try {
                             const [aaaa, mes, dd] = ev.fechaStr.split('-');
-                            const d = new Date(aaaa, parseInt(mes, 10) - 1, dd, 12, 0, 0);
+                            const d = new Date(parseInt(aaaa,10), parseInt(mes,10) - 1, parseInt(dd,10), 12, 0, 0);
                             const nombreDia = d.toLocaleDateString('es-CL', { weekday: 'short' }).replace('.', '');
                             const numDia = d.getDate();
                             etiquetaDia = `${nombreDia.charAt(0).toUpperCase() + nombreDia.slice(1)} ${numDia}`;
@@ -380,8 +373,10 @@
             }
         }
 
-        cargarCartelera();
-        setInterval(cargarCartelera, 30000);
+        window.onload = () => {
+            cargarCartelera();
+            setInterval(cargarCartelera, 30000);
+        };
     </script>
 </body>
 </html>
