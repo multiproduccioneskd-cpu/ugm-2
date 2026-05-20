@@ -39,8 +39,6 @@
             height: 65px;
             width: auto;
         }
-        
-        /* ESTILO DEL LOGO CENTRADO EN LA BARRA DE CONTROL */
         .logo-centro-wrapper {
             position: absolute;
             left: 50%;
@@ -54,7 +52,6 @@
             height: 65px;
             width: auto;
         }
-
         header h1 {
             font-size: 2.8rem;
             text-transform: uppercase;
@@ -99,7 +96,7 @@
             left: 0;
             width: 100%;
             opacity: 0;
-            transition: transform 0.3s linear, opacity 0.6s ease-in-out;
+            transition: transform 0.25s linear, opacity 0.6s ease-in-out;
         }
         .container.fade-in {
             opacity: 1;
@@ -197,6 +194,7 @@
 
     <script>
         let scrollInterval = null;
+        let rotationTimeout = null;
         let modoVistaSemanas = false; 
 
         function updateClock() {
@@ -210,35 +208,47 @@
         setInterval(updateClock, 1000);
         updateClock();
 
-        function iniciarScroll() {
+        function iniciarManejoPantalla(cantidadEventos) {
             if (scrollInterval) clearInterval(scrollInterval);
+            if (rotationTimeout) clearTimeout(rotationTimeout);
+            
             const wrapper = document.getElementById('scroll-wrapper');
             const container = document.getElementById('events-container');
-            let currentTop = 0;
-            container.style.transform = `translateY(0px)`;
             
-            scrollInterval = setInterval(() => {
-                const wrapperHeight = wrapper.clientHeight;
-                const containerHeight = container.clientHeight;
-                if (containerHeight > wrapperHeight) {
-                    currentTop -= 1;
-                    if (Math.abs(currentTop) >= (containerHeight - wrapperHeight + 60)) {
-                        clearInterval(scrollInterval);
-                        setTimeout(() => {
-                            container.classList.remove('fade-in');
-                            setTimeout(() => {
-                                container.style.transform = `translateY(0px)`;
-                                container.classList.add('fade-in');
-                                setTimeout(iniciarScroll, 2000);
-                            }, 600);
-                        }, 3000);
-                    } else {
-                        container.style.transform = `translateY(${currentTop}px)`;
+            container.style.transform = `translateY(0px)`;
+            const wrapperHeight = wrapper.clientHeight;
+            const containerHeight = container.clientHeight;
+
+            // CONDICIÓN: Si son 3 o menos eventos Y cabe físico en la pantalla, se quedan FIJOS
+            if (cantidadEventos <= 3 && containerHeight <= wrapperHeight) {
+                // Se quedan estáticos leyendo en la tele y rotan tras 10 segundos exactos
+                rotationTimeout = setTimeout(() => {
+                    container.classList.remove('fade-in');
+                    setTimeout(cargarCartelera, 600);
+                }, 10000);
+            } else {
+                // Si sobrepasa el espacio, se activa el scroll dinámico controlado
+                let currentTop = 0;
+                scrollInterval = setInterval(() => {
+                    if (container.clientHeight > wrapper.clientHeight) {
+                        currentTop -= 1; // Desplazamiento fluido
+                        
+                        // Si llegó al final del listado largo
+                        if (Math.abs(currentTop) >= (container.clientHeight - wrapper.clientHeight + 40)) {
+                            clearInterval(scrollInterval);
+                            
+                            // Espera 2.5 segundos abajo para que terminen de leer el último ítem
+                            rotationTimeout = setTimeout(() => {
+                                container.classList.remove('fade-in');
+                                // Aplica Fade Out y salta de inmediato a la otra ventana
+                                setTimeout(cargarCartelera, 600);
+                            }, 2500);
+                        } else {
+                            container.style.transform = `translateY(${currentTop}px)`;
+                        }
                     }
-                } else {
-                    container.style.transform = `translateY(0px)`;
-                }
-            }, 40);
+                }, 35); // Velocidad de scroll optimizada (un pelo más ágil)
+            }
         }
 
         async function cargarCartelera() {
@@ -258,6 +268,8 @@
                     if (!eventosRaw || eventosRaw.length === 0 || eventosRaw.error) {
                         container.innerHTML = '<div class="no-events">No hay eventos registrados en SharePoint</div>';
                         container.classList.add('fade-in');
+                        // Si está vacío, reintenta en 10 segundos
+                        rotationTimeout = setTimeout(cargarCartelera, 10000);
                         return;
                     }
 
@@ -316,6 +328,8 @@
                     if (muestraFinal.length === 0) {
                         container.innerHTML = '<div class="no-events">No hay más eventos programados</div>';
                         container.classList.add('fade-in');
+                        modoVistaSemanas = !modoVistaSemanas;
+                        rotationTimeout = setTimeout(cargarCartelera, 8000);
                         return;
                     }
 
@@ -353,21 +367,28 @@
                         container.appendChild(card);
                     });
 
+                    // Cambiamos el modo para el tiro que viene
                     modoVistaSemanas = !modoVistaSemanas;
+                    
+                    // Activamos la aparición visual suave
                     container.classList.add('fade-in');
-                    setTimeout(iniciarScroll, 1000);
+                    
+                    // Ejecutamos el validador inteligente de movimiento/fijeza
+                    setTimeout(() => {
+                        iniciarManejoPantalla(muestraFinal.length);
+                    }, 400);
 
                 } catch (error) {
                     console.error(error);
                     container.innerHTML = '<div class="no-events">⚠️ Error de conexión</div>';
                     container.classList.add('fade-in');
+                    rotationTimeout = setTimeout(cargarCartelera, 10000);
                 }
             }, 600);
         }
 
         window.onload = () => {
             cargarCartelera();
-            setInterval(cargarCartelera, 30000);
         };
     </script>
 </body>
