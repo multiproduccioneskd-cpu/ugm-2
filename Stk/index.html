@@ -38,16 +38,12 @@
         .logo-u {
             height: 65px;
             width: auto;
-            margin-left: 0px;
-            padding-left: 0px;
         }
         header h1 {
             font-size: 2.8rem;
             text-transform: uppercase;
             letter-spacing: 1px;
             font-weight: 800;
-            padding-left: 0px;
-            margin-left: 0px;
         }
         #right-header {
             display: flex;
@@ -191,17 +187,14 @@
 
         function iniciarScroll() {
             if (scrollInterval) clearInterval(scrollInterval);
-            
             const wrapper = document.getElementById('scroll-wrapper');
             const container = document.getElementById('events-container');
             let currentTop = 0;
-            
             container.style.transform = `translateY(0px)`;
             
             scrollInterval = setInterval(() => {
                 const wrapperHeight = wrapper.clientHeight;
                 const containerHeight = container.clientHeight;
-                
                 if (containerHeight > wrapperHeight) {
                     currentTop -= 1;
                     if (Math.abs(currentTop) >= (containerHeight - wrapperHeight + 60)) {
@@ -224,120 +217,68 @@
             const tituloSeccion = document.getElementById('main-title');
             
             try {
-                const response = await fetch('https://ugm-2.vercel.app/api/cartelera');
+                const response = await fetch(`https://ugm-2.vercel.app/api/cartelera?nocache=${Date.now()}`);
                 if (!response.ok) throw new Error('Error API');
                 
-                const items = await response.json();
+                const eventosBackend = await response.json();
+                container.innerHTML = '';
                 
-                if (!items || items.length === 0) {
-                    container.innerHTML = '<div class="no-events">No hay eventos registrados en SharePoint</div>';
+                if (!eventosBackend || eventosBackend.length === 0 || eventosBackend.error) {
+                    container.innerHTML = '<div class="no-events">No hay más eventos programados</div>';
                     return;
                 }
 
-                // Fecha de hoy limpia en formato Santiago de Chile (YYYY-MM-DD)
-                const hoyChileString = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
-                const ahoraMiliChile = new Date().getTime();
+                // Obtener el String de hoy en Santiago (YYYY-MM-DD)
+                const hoyChile = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
+                const horaChile = new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Santiago' });
 
-                const datosProcesados = items.map(item => {
-                    const f = item.fields || {};
-                    
-                    let salaDetected = "Por definir";
-                    const posiblesColumnasSala = ["Sala", "Ubicacion", "Location", "U_G_M_Sala", "Ubicaci_x00f3_n"];
-                    
-                    for (let col of posiblesColumnasSala) {
-                        if (f[col]) {
-                            salaDetected = f[col];
-                            break;
-                        }
-                    }
-                    if (salaDetected === "Por definir") {
-                        for (let key in f) {
-                            if (typeof f[key] === 'string' && (f[key].includes("Auditorio") || f[key].includes("Gimnasio") || f[key].includes("Sala") || f[key].includes("SALÓN"))) {
-                                salaDetected = f[key];
-                                break;
-                            }
-                        }
-                    }
-
-                    let fechaTexto = "Próximamente";
-                    let horaTexto = "00:00";
-                    let timestampOrden = 9999999999999;
-                    let esHoy = false;
-
-                    const fechaCruda = f["EventDate"] || f["EventDateTime"] || f["StartDate"] || f["Modified"] || "";
-                    
-                    if (fechaCruda && typeof fechaCruda === 'string') {
-                        const partes = fechaCruda.split('T');
-                        if (partes[0] && partes[1]) {
-                            fechaTexto = partes[0]; // YYYY-MM-DD crudo de base de datos
-                            
-                            // VALIDACIÓN INMUNE DE DÍA: Comparamos texto puro de calendario vs texto puro de hoy chile
-                            esHoy = fechaTexto === hoyChileString;
-                            
-                            const subPartesHora = partes[1].split(':');
-                            let horaOriginal = parseInt(subPartesHora[0], 10);
-                            let minutosOriginales = subPartesHora[1] || "00";
-
-                            if (!isNaN(horaOriginal)) {
-                                // Sumamos las 4 horas de desfase directo sobre el entero
-                                let horaAjustada = (horaOriginal + 4) % 24;
-                                
-                                if (parseInt(minutosOriginales, 10) > 0 && parseInt(minutosOriginales, 10) < 10) {
-                                    minutosOriginales = "00";
-                                }
-                                
-                                horaTexto = `${String(horaAjustada).padStart(2, '0')}:${minutosOriginales}`;
-                                
-                                // Creamos un objeto Date local forzado para que el navegador ordene las tarjetas bien de arriba a abajo
-                                const [aaaa, mes, dd] = fechaTexto.split('-');
-                                const localDateObj = new Date(parseInt(aaaa,10), parseInt(mes,10) - 1, parseInt(dd,10), horaAjustada, parseInt(minutosOriginales,10), 0);
-                                timestampOrden = localDateObj.getTime();
-                            }
-                        }
-                    }
+                // Procesamos aislando los textos para que la casilla única no cause mareos
+                const listaLimpia = eventosBackend.map(ev => {
+                    // Si el backend ya procesó los campos individuales, los usamos directamente
+                    let fStr = ev.fechaStr || "9999-12-31";
+                    let hStr = ev.hora || "00:00";
+                    let esDeHoy = ev.esHoy || false;
 
                     return {
-                        title: f.Title || f.LinkTitle || "Evento sin título",
-                        sala: salaDetected,
-                        hora: horaTexto,
-                        fechaStr: fechaTexto,
-                        esHoy: esHoy,
-                        ts: timestampOrden
+                        title: ev.title,
+                        sala: ev.sala,
+                        hora: hStr,
+                        fechaStr: fStr,
+                        esHoy: esDeHoy
                     };
                 });
 
-                let eventosAMostrar = [];
+                let muestraFinal = [];
 
                 if (modoVistaSemanas) {
                     tituloSeccion.innerText = "PRÓXIMOS EVENTOS";
-                    // PRÓXIMOS: Excluye estrictamente HOY, solo toma eventos de fechas futuras en cascada
-                    eventosAMostrar = datosProcesados.filter(ev => !ev.esHoy && ev.ts >= ahoraMiliChile);
+                    // PRÓXIMOS: Excluye estrictamente hoy, y toma fechas mayores en orden alfabético de texto
+                    muestraFinal = listaLimpia.filter(ev => !ev.esHoy && ev.fechaStr > hoyChile);
                 } else {
                     tituloSeccion.innerText = "EVENTOS DE HOY";
-                    // HOY: Solo lo que pertenece a la fecha de hoy y que no haya vencido por más de 10 minutos
-                    eventosAMostrar = datosProcesados.filter(ev => ev.esHoy && ev.ts >= (ahoraMiliChile - 10 * 60 * 1000));
+                    // HOY: Solo la fecha de hoy, y horas vigentes
+                    muestraFinal = listaLimpia.filter(ev => ev.esHoy && ev.hora >= horaChile);
                 }
 
-                // Parche automático por si hoy ya no quedan eventos vigentes
-                if (eventosAMostrar.length === 0 && !modoVistaSemanas) {
+                if (muestraFinal.length === 0 && !modoVistaSemanas) {
                     tituloSeccion.innerText = "PRÓXIMOS EVENTOS";
-                    eventosAMostrar = datosProcesados.filter(ev => !ev.esHoy && ev.ts >= ahoraMiliChile);
+                    muestraFinal = listaLimpia.filter(ev => !ev.esHoy && ev.fechaStr > hoyChile);
                 }
 
-                if (eventosAMostrar.length === 0) {
+                if (muestraFinal.length === 0) {
                     container.innerHTML = '<div class="no-events">No hay más eventos programados en cartelera</div>';
                     return;
                 }
 
-                // Ordenar cronológicamente impecable
-                eventosAMostrar.sort((a, b) => a.ts - b.ts);
+                // Ordenamos usando comparación de textos directos (Inmune a bugs de Date)
+                muestraFinal.sort((a, b) => `${a.fechaStr}T${a.hora}`.localeCompare(`${b.fechaStr}T${b.hora}`));
 
                 container.innerHTML = '';
                 
-                eventosAMostrar.forEach(ev => {
+                muestraFinal.forEach(ev => {
                     let etiquetaDia = "Hoy";
                     
-                    if (!ev.esHoy && ev.fechaStr !== "Próximamente") {
+                    if (!ev.esHoy && ev.fechaStr !== "9999-12-31") {
                         try {
                             const [aaaa, mes, dd] = ev.fechaStr.split('-');
                             const d = new Date(parseInt(aaaa,10), parseInt(mes,10) - 1, parseInt(dd,10), 12, 0, 0);
@@ -369,7 +310,7 @@
 
             } catch (error) {
                 console.error(error);
-                container.innerHTML = '<div class="no-events">⚠️ Error de comunicación con SharePoint</div>';
+                container.innerHTML = '<div class="no-events">⚠️ Error de conexión</div>';
             }
         }
 
