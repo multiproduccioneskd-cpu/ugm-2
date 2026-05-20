@@ -38,16 +38,12 @@
         .logo-u {
             height: 65px;
             width: auto;
-            margin-left: 0px;
-            padding-left: 0px;
         }
         header h1 {
             font-size: 2.8rem;
             text-transform: uppercase;
             letter-spacing: 1px;
             font-weight: 800;
-            padding-left: 0px;
-            margin-left: 0px;
         }
         #right-header {
             display: flex;
@@ -176,7 +172,7 @@
 
     <script>
         let scrollInterval = null;
-        let modoVistaSemanas = false; 
+        let vistaAlternadaSemanas = false; 
 
         function updateClock() {
             const ahora = new Date();
@@ -191,17 +187,14 @@
 
         function iniciarScroll() {
             if (scrollInterval) clearInterval(scrollInterval);
-            
             const wrapper = document.getElementById('scroll-wrapper');
             const container = document.getElementById('events-container');
             let currentTop = 0;
-            
             container.style.transform = `translateY(0px)`;
             
             scrollInterval = setInterval(() => {
                 const wrapperHeight = wrapper.clientHeight;
                 const containerHeight = container.clientHeight;
-                
                 if (containerHeight > wrapperHeight) {
                     currentTop -= 1;
                     if (Math.abs(currentTop) >= (containerHeight - wrapperHeight + 60)) {
@@ -224,21 +217,21 @@
             const tituloSeccion = document.getElementById('main-title');
             
             try {
-                // Anti-Caché dinámico: Forzamos a Vercel a pedir datos limpios metiendo un timestamp aleatorio
-                const response = await fetch('https://ugm-2.vercel.app/api/cartelera?t=' + new Date().getTime());
+                // Destructor de caché dinámico total en la llamada fetch
+                const response = await fetch('https://ugm-2.vercel.app/api/cartelera?nocache=' + Date.now());
                 if (!response.ok) throw new Error('Error API');
                 
                 const items = await response.json();
-                
                 if (!items || items.length === 0) {
                     container.innerHTML = '<div class="no-events">No hay eventos registrados en SharePoint</div>';
                     return;
                 }
 
-                const hoyChileString = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' }); 
-                const horaChileString = new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Santiago' }); 
+                // Captura estricta del día de hoy en Santiago (Formato YYYY-MM-DD)
+                const hoyChile = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
+                const horaChile = new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Santiago' });
 
-                const datosProcesados = items.map(item => {
+                const listaMapeada = items.map(item => {
                     const f = item.fields || {};
                     
                     let salaDetected = "Por definir";
@@ -246,36 +239,29 @@
                     for (let col of posiblesColumnasSala) {
                         if (f[col]) { salaDetected = f[col]; break; }
                     }
-                    if (salaDetected === "Por definir") {
-                        for (let key in f) {
-                            if (typeof f[key] === 'string' && (f[key].includes("Auditorio") || f[key].includes("Gimnasio") || f[key].includes("Sala") || f[key].includes("SALÓN"))) {
-                                salaDetected = f[key];
-                                break;
-                            }
-                        }
-                    }
 
                     let fechaTexto = "9999-12-31";
                     let horaTexto = "00:00";
                     let esHoy = false;
 
-                    const fechaCruda = f["EventDate"] || f["StartDate"] || f["EventDateTime"] || "";
+                    const fechaCruda = f["EventDate"] || f["StartDate"] || "";
                     if (fechaCruda && typeof fechaCruda === 'string') {
                         const partes = fechaCruda.split('T');
                         if (partes[0] && partes[1]) {
                             fechaTexto = partes[0]; 
-                            esHoy = (fechaTexto === hoyChileString);
+                            esHoy = (fechaTexto === hoyChile);
                             
                             const subPartesHora = partes[1].split(':');
                             let horaOriginal = parseInt(subPartesHora[0], 10);
-                            let minutesOriginales = subPartesHora[1] || "00";
+                            let minutosOriginales = subPartesHora[1] || "00";
 
                             if (!isNaN(horaOriginal)) {
+                                // Aplicamos el desfase exacto (+4 horas)
                                 let horaAjustada = (horaOriginal + 4) % 24;
-                                if (parseInt(minutesOriginales, 10) > 0 && parseInt(minutesOriginales, 10) < 10) {
-                                    minutesOriginales = "00";
+                                if (parseInt(minutosOriginales, 10) > 0 && parseInt(minutosOriginales, 10) < 10) {
+                                    minutosOriginales = "00";
                                 }
-                                horaTexto = `${String(horaAjustada).padStart(2, '0')}:${minutesOriginales}`;
+                                horaTexto = `${String(horaAjustada).padStart(2, '0')}:${minutosOriginales}`;
                             }
                         }
                     }
@@ -289,29 +275,29 @@
                     };
                 });
 
-                let eventosAMostrar = [];
+                let muestraFinal = [];
 
-                if (modoVistaSemanas) {
+                if (vistaAlternadaSemanas) {
                     tituloSeccion.innerText = "PRÓXIMOS EVENTOS";
-                    // REGLA CRUDA: Solo entran los que sean alfabéticamente superiores a la fecha de hoy
-                    eventosAMostrar = datosProcesados.filter(ev => !ev.esHoy && ev.fechaStr > hoyChileString);
+                    // PRÓXIMOS: Excluye estrictamente hoy, solo días futuros en adelante
+                    muestraFinal = listaMapeada.filter(ev => !ev.esHoy && ev.fechaStr > hoyChile);
                 } else {
                     tituloSeccion.innerText = "EVENTOS DE HOY";
-                    // REGLA CRUDA: Solo entran si calzan exactamente con el texto de hoy y no han vencido la hora
-                    eventosAMostrar = datosProcesados.filter(ev => ev.esHoy && ev.hora >= horaChileString);
+                    // HOY: Solo lo que pertenece a la fecha de hoy y falte por ejecutarse
+                    muestraFinal = listaMapeada.filter(ev => ev.esHoy && ev.hora >= horaChile);
                 }
 
-                if (eventosAMostrar.length === 0 && !modoVistaSemanas) {
+                if (muestraFinal.length === 0 && !vistaAlternadaSemanas) {
                     tituloSeccion.innerText = "PRÓXIMOS EVENTOS";
-                    eventosAMostrar = datosProcesados.filter(ev => !ev.esHoy && ev.fechaStr > hoyChileString);
+                    muestraFinal = listaMapeada.filter(ev => !ev.esHoy && ev.fechaStr > hoyChile);
                 }
 
-                if (eventosAMostrar.length === 0) {
+                if (muestraFinal.length === 0) {
                     container.innerHTML = '<div class="no-events">No hay más eventos programados en cartelera</div>';
                     return;
                 }
 
-                eventosAMostrar.sort((a, b) => {
+                muestraFinal.sort((a, b) => {
                     const ordenA = `${a.fechaStr} T ${a.hora}`;
                     const ordenB = `${b.fechaStr} T ${b.hora}`;
                     return ordenA.localeCompare(ordenB);
@@ -319,7 +305,7 @@
 
                 container.innerHTML = '';
                 
-                eventosAMostrar.forEach(ev => {
+                muestraFinal.forEach(ev => {
                     let etiquetaDia = "Hoy";
                     
                     if (!ev.esHoy && ev.fechaStr !== "9999-12-31") {
@@ -349,7 +335,7 @@
                     container.appendChild(card);
                 });
 
-                modoVistaSemanas = !modoVistaSemanas;
+                vistaAlternadaSemanas = !vistaAlternadaSemanas;
                 setTimeout(iniciarScroll, 1000);
 
             } catch (error) {
@@ -364,5 +350,4 @@
         };
     </script>
 </body>
-</html>
 </html>
