@@ -21,7 +21,7 @@
         }
         header {
             background-color: #002060;
-            padding: 20px 40px;
+            padding: 20px 20px; /* Reducido para pegar los elementos a las orillas */
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -30,7 +30,7 @@
         .header-left {
             display: flex;
             align-items: center;
-            gap: 25px;
+            gap: 20px;
         }
         .logo-u {
             height: 65px;
@@ -150,7 +150,7 @@
     <header>
         <div class="header-left">
             <img src="https://www.ugm.cl/images/logo.png" alt="UGM" class="logo-u">
-            <h1>Cartelera de Eventos</h1>
+            <h1 id="main-title">Cartelera de Eventos</h1>
         </div>
         <div id="right-header">
             <div id="current-date">Cargando fecha...</div>
@@ -168,6 +168,7 @@
 
     <script>
         let scrollInterval = null;
+        let modoVistaSemanas = false; // Alternador automático entre vista diaria y semanal
 
         function updateClock() {
             const ahora = new Date();
@@ -186,6 +187,9 @@
             const wrapper = document.getElementById('scroll-wrapper');
             const container = document.getElementById('events-container');
             let currentTop = 0;
+            
+            // Reiniciar posición visual antes de empezar el scroll
+            container.style.transform = `translateY(0px)`;
             
             scrollInterval = setInterval(() => {
                 const wrapperHeight = wrapper.clientHeight;
@@ -210,6 +214,7 @@
 
         async function cargarCartelera() {
             const container = document.getElementById('events-container');
+            const tituloSeccion = document.getElementById('main-title');
             
             try {
                 const response = await fetch('https://ugm-2.vercel.app/api/cartelera');
@@ -222,6 +227,7 @@
                     return;
                 }
 
+                // Obtener fecha de hoy en formato local de Chile (YYYY-MM-DD)
                 const hoyChile = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
 
                 const datosProcesados = items.map(item => {
@@ -253,7 +259,6 @@
                     const fechaCruda = f["EventDate"] || f["EventDateTime"] || f["StartDate"] || f["Modified"] || "";
                     
                     if (fechaCruda && typeof fechaCruda === 'string') {
-                        // AJUSTE DE INGENIERÍA: Procesamos la hora como texto crudo omitiendo el objeto Date mfeante split
                         const partes = fechaCruda.split('T');
                         if (partes[0] && partes[1]) {
                             fechaTexto = partes[0]; 
@@ -264,10 +269,8 @@
                             let minutosOriginales = subPartesHora[1] || "00";
 
                             if (!isNaN(horaOriginal)) {
-                                // Sumamos el desfase exacto de 4 horas al texto puro de la hora de la API
                                 let horaAjustada = (horaOriginal + 4) % 24;
                                 
-                                // Planchamos a 00 los minutos si vienen con decimales flotantes residuales de SharePoint
                                 if (parseInt(minutosOriginales, 10) > 0 && parseInt(minutosOriginales, 10) < 10) {
                                     minutosOriginales = "00";
                                 }
@@ -288,15 +291,30 @@
                     };
                 });
 
-                datosProcesados.sort((a, b) => {
-                    if (a.esHoy && !b.esHoy) return -1;
-                    if (!a.esHoy && b.esHoy) return 1;
-                    return a.ts - b.ts;
-                });
+                // Filtrar según el modo alternante de recarga automática
+                let eventosFiltrados = [];
+                if (modoVistaSemanas) {
+                    // MODO SEMANA: Mostrar todo lo que viene ordenado por fecha
+                    tituloSeccion.innerText = "Cartelera de Eventos (Semana)";
+                    eventosFiltrados = datosProcesados;
+                } else {
+                    // MODO DÍA: Filtrar solo los que correspondan estrictamente a Hoy
+                    tituloSeccion.innerText = "Cartelera de Eventos (Hoy)";
+                    eventosFiltrados = datosProcesados.filter(ev => ev.esHoy);
+                }
+
+                // Si el modo diario está vacío, saltar de inmediato al modo semanal para no mostrar pantalla en blanco
+                if (eventosFiltrados.length === 0 && !modoVistaSemanas) {
+                    tituloSeccion.innerText = "Cartelera de Eventos (Próximos)";
+                    eventosFiltrados = datosProcesados;
+                }
+
+                // Ordenar cronológicamente
+                eventosFiltrados.sort((a, b) => a.ts - b.ts);
 
                 container.innerHTML = '';
                 
-                datosProcesados.forEach(ev => {
+                eventosFiltrados.forEach(ev => {
                     let etiquetaDia = "Hoy";
                     
                     if (!ev.esHoy && ev.fechaStr !== "Próximamente") {
@@ -325,6 +343,9 @@
                     container.appendChild(card);
                 });
 
+                // Alternar el modo para el próximo refresco automático (en 30 segundos)
+                modoVistaSemanas = !modoVistaSemanas;
+
                 setTimeout(iniciarScroll, 1000);
 
             } catch (error) {
@@ -333,6 +354,7 @@
             }
         }
 
+        // Carga inicial y refresco cada 30 segundos alternando vistas
         cargarCartelera();
         setInterval(cargarCartelera, 30000);
     </script>
