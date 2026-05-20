@@ -1,4 +1,6 @@
-export default async function handler(req, res) {
+const https = require('https');
+
+module.exports = async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -35,7 +37,8 @@ export default async function handler(req, res) {
             method: 'GET',
             headers: { 
                 'Authorization': `Bearer ${accessToken}`,
-                'Accept': 'application/json'
+                'Accept': 'application/json',
+                'Cache-Control': 'no-cache'
             }
         });
 
@@ -47,15 +50,14 @@ export default async function handler(req, res) {
         const graphData = await graphRes.json();
         const rawItems = graphData.value || [];
 
-        // Mandamos el objeto fields completo al frontend para no perder datos en el camino
-        const eventosProcesados = rawItems.map(item => {
+        const respuestaLimpia = rawItems.map(item => {
             return {
                 id: item.id,
                 fields: item.fields || {}
             };
         });
 
-        return res.status(200).json(eventosProcesados);
+        return res.status(200).json(respuestaLimpia);
 
     } catch (error) {
         console.error("Fallo crítico backend:", error);
@@ -64,4 +66,4 @@ export default async function handler(req, res) {
             mensaje: error.message 
         });
     }
-}
+};
