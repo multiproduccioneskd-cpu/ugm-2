@@ -32,22 +32,16 @@
             display: flex;
             align-items: center;
             gap: 15px;
-            padding-left: 0px; 
-            margin-left: 0px;
         }
         .logo-u {
             height: 65px;
             width: auto;
-            margin-left: 0px;
-            padding-left: 0px;
         }
         header h1 {
             font-size: 2.8rem;
             text-transform: uppercase;
             letter-spacing: 1px;
             font-weight: 800;
-            padding-left: 0px;
-            margin-left: 0px;
         }
         #right-header {
             display: flex;
@@ -232,31 +226,35 @@
                     return;
                 }
 
-                // Fecha y Hora de control en tiempo real de Chile
+                // Fecha y Hora de control de hoy en Chile
                 const hoyChileString = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' }); 
                 const horaChileString = new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Santiago' });
 
-                // Procesamos aplicando la guillotina sobre la columna "Inicio"
                 const listaProcesada = eventosRaw.map(ev => {
                     let fechaTexto = "9999-12-31";
                     let horaTexto = "00:00";
                     let esHoy = false;
 
                     if (ev.casillaTiempo && typeof ev.casillaTiempo === 'string') {
-                        const partes = ev.casillaTiempo.split('T');
-                        if (partes[0] && partes[1]) {
-                            fechaTexto = partes[0]; 
+                        // Creamos un objeto Date nativo interpretando la estampa UTC que manda Graph
+                        const dateObjeto = new Date(ev.casillaTiempo);
+                        
+                        if (!isNaN(dateObjeto.getTime())) {
+                            // Le restamos las 2 horas de desfase directo al objeto de tiempo nativo
+                            dateObjeto.setHours(dateObjeto.getHours() - 2);
+                            
+                            // Extraemos año, mes y día limpios
+                            const anio = dateObjeto.getFullYear();
+                            const mes = String(dateObjeto.getMonth() + 1).padStart(2, '0');
+                            const dia = String(dateObjeto.getDate()).padStart(2, '0');
+                            fechaTexto = `${anio}-${mes}-${dia}`;
+                            
                             esHoy = (fechaTexto === hoyChileString);
                             
-                            const subPartesHora = partes[1].split(':');
-                            let horaOriginal = parseInt(subPartesHora[0], 10);
-                            let minutosOriginales = subPartesHora[1] || "00";
-
-                            if (!isNaN(horaOriginal)) {
-                                // REGLA MATEMÁTICA: Restamos las 2 horas exactas del desfase detectado
-                                let horaAjustada = (horaOriginal - 2 + 24) % 24;
-                                horaTexto = `${String(horaAjustada).padStart(2, '0')}:${minutosOriginales.substring(0,2)}`;
-                            }
+                            // Extraemos las horas y minutos exactos ya arreglados
+                            const hrs = String(dateObjeto.getHours()).padStart(2, '0');
+                            const mins = String(dateObjeto.getMinutes()).padStart(2, '0');
+                            horaTexto = `${hrs}:${mins}`;
                         }
                     }
 
@@ -273,15 +271,12 @@
 
                 if (modoVistaSemanas) {
                     tituloSeccion.innerText = "PRÓXIMOS EVENTOS";
-                    // PRÓXIMOS: Excluye hoy estrictamente y mete lo que venga después en la semana
                     muestraFinal = listaProcesada.filter(ev => !ev.esHoy && ev.fechaStr > hoyChileString);
                 } else {
                     tituloSeccion.innerText = "EVENTOS DE HOY";
-                    // HOY: Solo lo que calza con hoy y falte por cumplirse en la hora
                     muestraFinal = listaProcesada.filter(ev => ev.esHoy && ev.hora >= horaChileString);
                 }
 
-                // Parche automático por si hoy ya no quedan eventos vigentes
                 if (muestraFinal.length === 0 && !modoVistaSemanas) {
                     tituloSeccion.innerText = "PRÓXIMOS EVENTOS";
                     muestraFinal = listaProcesada.filter(ev => !ev.esHoy && ev.fechaStr > hoyChileString);
@@ -292,7 +287,6 @@
                     return;
                 }
 
-                // Ordenamos cronológicamente usando strings puros combinados
                 muestraFinal.sort((a, b) => `${a.fechaStr}T${a.hora}`.localeCompare(`${b.fechaStr}T${b.hora}`));
 
                 container.innerHTML = '';
