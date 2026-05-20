@@ -21,7 +21,7 @@
         }
         header {
             background-color: #002060;
-            padding: 20px 0px; /* Cero a los lados para pegar el contenido al borde absoluto */
+            padding: 20px 0px; 
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -32,7 +32,7 @@
             display: flex;
             align-items: center;
             gap: 15px;
-            padding-left: 0px; /* Eliminado cualquier espacio muerto inicial */
+            padding-left: 0px; 
             margin-left: 0px;
         }
         .logo-u {
@@ -54,7 +54,7 @@
             flex-direction: column;
             align-items: flex-end;
             gap: 5px;
-            padding-right: 20px; /* Mantiene la hora bien estirada a la derecha */
+            padding-right: 20px; 
         }
         #current-date {
             font-size: 1.6rem;
@@ -311,23 +311,25 @@
                 const marcaTiempoAhora = dChile.getTime();
                 const limiteSabadoTs = sabadoLimite.getTime();
 
-                // FILTRO ESTRICTO: Fuera todo lo antiguo a la hora de este momento
-                const eventosFiltradosGlobal = datosProcesados.filter(ev => {
-                    return ev.ts >= (marcaTiempoAhora - 10 * 60 * 1000) && ev.ts <= limiteSabadoTs;
-                });
+                // Filtrar solo eventos que estén vigentes en la semana (hasta el sábado)
+                const eventosVigentesSemana = datosProcesados.filter(ev => ev.ts <= limiteSabadoTs);
 
                 let eventosAMostrar = [];
+
                 if (modoVistaSemanas) {
                     tituloSeccion.innerText = "PRÓXIMOS EVENTOS";
-                    eventosAMostrar = eventosFiltradosGlobal;
+                    // SEPARACIÓN ESTRICTA: Excluye absolutamente todo lo de HOY, solo muestra del día siguiente en adelante
+                    eventosAMostrar = eventosVigentesSemana.filter(ev => !ev.esHoy && ev.ts >= marcaTiempoAhora);
                 } else {
                     tituloSeccion.innerText = "EVENTOS DE HOY";
-                    eventosAMostrar = eventosFiltradosGlobal.filter(ev => ev.esHoy);
+                    // MODO HOY: Solo lo de hoy que no haya vencido (ventana de 10 minutos de gracia)
+                    eventosAMostrar = eventosVigentesSemana.filter(ev => ev.esHoy && ev.ts >= (marcaTiempoAhora - 10 * 60 * 1000));
                 }
 
-                if (eventosAMostrar.length === 0) {
+                // Parche automático: si la vista de hoy está vacía, saltar directo a próximos
+                if (eventosAMostrar.length === 0 && !modoVistaSemanas) {
                     tituloSeccion.innerText = "PRÓXIMOS EVENTOS";
-                    eventosAMostrar = eventosFiltradosGlobal;
+                    eventosAMostrar = eventosVigentesSemana.filter(ev => !ev.esHoy && ev.ts >= marcaTiempoAhora);
                 }
 
                 if (eventosAMostrar.length === 0) {
