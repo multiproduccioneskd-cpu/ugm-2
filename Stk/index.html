@@ -5,7 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cartelera de Eventos UGM</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #0b192f;
@@ -24,20 +28,64 @@
             border-bottom: 5px solid #0056b3;
             width: 100%;
         }
-        .header-left { display: flex; align-items: center; gap: 15px; }
-        .logo-u { height: 65px; width: auto; }
-        header h1 { font-size: 2.8rem; text-transform: uppercase; letter-spacing: 1px; font-weight: 800; }
-        #right-header { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; padding-right: 20px; }
-        #current-date { font-size: 1.6rem; color: #ffc000; font-weight: bold; text-transform: capitalize; }
-        #current-time { font-size: 2.5rem; font-weight: bold; color: #ffffff; }
-        main { flex: 1; padding: 30px; position: relative; overflow: hidden; }
-        #scroll-wrapper { height: 100%; overflow-y: hidden; position: relative; }
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding-left: 0px; 
+            margin-left: 0px;
+        }
+        .logo-u {
+            height: 65px;
+            width: auto;
+            margin-left: 0px;
+            padding-left: 0px;
+        }
+        header h1 {
+            font-size: 2.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 800;
+            padding-left: 0px;
+            margin-left: 0px;
+        }
+        #right-header {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 5px;
+            padding-right: 20px; 
+        }
+        #current-date {
+            font-size: 1.6rem;
+            color: #ffc000;
+            font-weight: bold;
+            text-transform: capitalize;
+        }
+        #current-time {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #ffffff;
+        }
+        main {
+            flex: 1;
+            padding: 30px;
+            position: relative;
+            overflow: hidden;
+        }
+        #scroll-wrapper {
+            height: 100%;
+            overflow-y: hidden;
+            position: relative;
+        }
         .container {
             display: flex;
             flex-direction: column;
             gap: 20px;
             position: absolute;
-            top: 0; left: 0; width: 100%;
+            top: 0;
+            left: 0;
+            width: 100%;
             transition: transform 0.3s linear;
         }
         .event-card {
@@ -50,22 +98,59 @@
             align-items: center;
             box-shadow: 0 10px 20px rgba(0,0,0,0.4);
         }
-        .event-info { display: flex; flex-direction: column; gap: 12px; flex: 1; }
-        .event-title { font-size: 2.6rem; font-weight: bold; color: #ffffff; line-height: 1.2; }
+        .event-info {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            flex: 1;
+        }
+        .event-title {
+            font-size: 2.6rem;
+            font-weight: bold;
+            color: #ffffff;
+            line-height: 1.2;
+        }
         .event-room {
-            font-size: 1.8rem; color: #000000; font-weight: bold;
-            background-color: #ffa500; padding: 8px 24px; border-radius: 8px;
-            align-self: flex-start; text-transform: uppercase;
+            font-size: 1.8rem;
+            color: #000000;
+            font-weight: bold;
+            background-color: #ffa500;
+            padding: 8px 24px;
+            border-radius: 8px;
+            align-self: flex-start;
+            text-transform: uppercase;
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
         .event-time {
-            font-size: 3.2rem; font-weight: 800; color: #38b6ff;
-            background-color: #0b192f; padding: 15px 35px; border-radius: 10px;
-            border: 3px solid #0056b3; white-space: nowrap; text-align: center;
-            display: flex; flex-direction: column; justify-content: center; min-width: 200px;
+            font-size: 3.2rem;
+            font-weight: 800;
+            color: #38b6ff;
+            background-color: #0b192f;
+            padding: 15px 35px;
+            border-radius: 10px;
+            border: 3px solid #0056b3;
+            white-space: nowrap;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-width: 200px;
         }
-        .event-day-label { font-size: 1.2rem; color: #8892b0; text-transform: uppercase; font-weight: bold; margin-bottom: 4px; }
-        .no-events { font-size: 2.8rem; text-align: center; color: #8892b0; margin-top: 15vh; width: 100%; }
+        .event-day-label {
+            font-size: 1.2rem;
+            color: #8892b0;
+            text-transform: uppercase;
+            font-weight: bold;
+            margin-bottom: 4px;
+            letter-spacing: 1px;
+        }
+        .no-events {
+            font-size: 2.8rem;
+            text-align: center;
+            color: #8892b0;
+            margin-top: 15vh;
+            width: 100%;
+        }
     </style>
 </head>
 <body>
@@ -96,10 +181,13 @@
         function updateClock() {
             const ahora = new Date();
             document.getElementById('current-time').innerText = ahora.toLocaleTimeString('es-CL', { hour12: false });
+            
             const opciones = { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Santiago' };
-            document.getElementById('current-date').innerText = ahora.toLocaleDateString('es-CL', opciones).toUpperCase();
+            let fechaTexto = ahora.toLocaleDateString('es-CL', opciones);
+            document.getElementById('current-date').innerText = fechaTexto.charAt(0).toUpperCase() + fechaTexto.slice(1);
         }
-        setInterval(updateClock, 1000); updateClock();
+        setInterval(updateClock, 1000);
+        updateClock();
 
         function iniciarScroll() {
             if (scrollInterval) clearInterval(scrollInterval);
@@ -165,7 +253,7 @@
                             let minutosOriginales = subPartesHora[1] || "00";
 
                             if (!isNaN(horaOriginal)) {
-                                // REGLA DE ORO: Restamos las 2 horas exactas del desfase de la columna Inicio
+                                // REGLA MATEMÁTICA: Restamos las 2 horas exactas del desfase detectado
                                 let horaAjustada = (horaOriginal - 2 + 24) % 24;
                                 horaTexto = `${String(horaAjustada).padStart(2, '0')}:${minutosOriginales.substring(0,2)}`;
                             }
@@ -173,8 +261,8 @@
                     }
 
                     return {
-                        title: ev.title,
-                        sala: ev.sala,
+                        title: ev.title || "Evento sin título",
+                        sala: ev.sala || "Por definir",
                         hora: horaTexto,
                         fechaStr: fechaTexto,
                         esHoy: esHoy
@@ -185,12 +273,15 @@
 
                 if (modoVistaSemanas) {
                     tituloSeccion.innerText = "PRÓXIMOS EVENTOS";
+                    // PRÓXIMOS: Excluye hoy estrictamente y mete lo que venga después en la semana
                     muestraFinal = listaProcesada.filter(ev => !ev.esHoy && ev.fechaStr > hoyChileString);
                 } else {
                     tituloSeccion.innerText = "EVENTOS DE HOY";
+                    // HOY: Solo lo que calza con hoy y falte por cumplirse en la hora
                     muestraFinal = listaProcesada.filter(ev => ev.esHoy && ev.hora >= horaChileString);
                 }
 
+                // Parche automático por si hoy ya no quedan eventos vigentes
                 if (muestraFinal.length === 0 && !modoVistaSemanas) {
                     tituloSeccion.innerText = "PRÓXIMOS EVENTOS";
                     muestraFinal = listaProcesada.filter(ev => !ev.esHoy && ev.fechaStr > hoyChileString);
@@ -201,6 +292,7 @@
                     return;
                 }
 
+                // Ordenamos cronológicamente usando strings puros combinados
                 muestraFinal.sort((a, b) => `${a.fechaStr}T${a.hora}`.localeCompare(`${b.fechaStr}T${b.hora}`));
 
                 container.innerHTML = '';
