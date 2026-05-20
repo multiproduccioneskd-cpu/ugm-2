@@ -232,11 +232,11 @@
                     return;
                 }
 
-                // Obtener fecha y hora actual de Chile en texto crudo
+                // Fecha y Hora de control en tiempo real de Chile
                 const hoyChileString = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' }); 
                 const horaChileString = new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Santiago' });
 
-                // Procesamos aplicando la guillotina de texto inmune
+                // Procesamos aplicando la guillotina sobre la columna "Inicio"
                 const listaProcesada = eventosRaw.map(ev => {
                     let fechaTexto = "9999-12-31";
                     let horaTexto = "00:00";
@@ -245,21 +245,18 @@
                     if (ev.casillaTiempo && typeof ev.casillaTiempo === 'string') {
                         const partes = ev.casillaTiempo.split('T');
                         if (partes[0] && partes[1]) {
-                            fechaTexto = partes[0]; // Captura el "YYYY-MM-DD"
+                            fechaTexto = partes[0]; 
                             esHoy = (fechaTexto === hoyChileString);
                             
-                            // Guillotina e inyección matemática de texto limpia
                             const subPartesHora = partes[1].split(':');
                             let horaOriginal = parseInt(subPartesHora[0], 10);
                             let minutosOriginales = subPartesHora[1] || "00";
 
                             if (!isNaN(horaOriginal)) {
-                                // RESTA INTEGRAL DE 2 HORAS: Inmune a números negativos o quiebres de medianoche
-                                let horaAjustada = (horaOriginal - 2 + 24) % 24;
+                                // CORRECCIÓN DEFINITIVA: Sumamos las 2 horas de desfase de forma segura
+                                let horaAjustada = (horaOriginal + 2) % 24;
                                 
-                                // Limpiamos segundos o caracteres residuales si los hubiera
                                 let minsLimpios = minutosOriginales.substring(0, 2);
-                                
                                 horaTexto = `${String(horaAjustada).padStart(2, '0')}:${minsLimpios}`;
                             }
                         }
@@ -294,7 +291,7 @@
                     return;
                 }
 
-                // Ordenamos cronológicamente de forma perfecta
+                // Ordenamos cronológicamente usando strings puros combinados
                 muestraFinal.sort((a, b) => `${a.fechaStr}T${a.hora}`.localeCompare(`${b.fechaStr}T${b.hora}`));
 
                 container.innerHTML = '';
