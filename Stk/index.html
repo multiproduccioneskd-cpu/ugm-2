@@ -234,24 +234,17 @@
                     return;
                 }
 
-                // Capturamos el String puro de la fecha de hoy en Santiago (YYYY-MM-DD)
-                const hoyChileString = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
-                
-                // Calculamos el timestamp de este minuto exacto en Chile
-                const ahoraChileObj = new Date(new Date().toLocaleString("en-US", {timeZone: "America/Santiago"}));
-                const ahoraMiliChile = ahoraChileObj.getTime();
+                // Strings puros de control de tiempo en Santiago de Chile
+                const hoyChileString = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' }); // "YYYY-MM-DD"
+                const horaChileString = new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Santiago' }); // "HH:MM"
 
                 const datosProcesados = items.map(item => {
                     const f = item.fields || {};
                     
                     let salaDetected = "Por definir";
                     const posiblesColumnasSala = ["Sala", "Ubicacion", "Location", "U_G_M_Sala", "Ubicaci_x00f3_n"];
-                    
                     for (let col of posiblesColumnasSala) {
-                        if (f[col]) {
-                            salaDetected = f[col];
-                            break;
-                        }
+                        if (f[col]) { salaDetected = f[col]; break; }
                     }
                     if (salaDetected === "Por definir") {
                         for (let key in f) {
@@ -262,20 +255,15 @@
                         }
                     }
 
-                    let fechaTexto = "Próximamente";
+                    let fechaTexto = "9999-12-31";
                     let horaTexto = "00:00";
-                    let timestampOrden = 9999999999999;
                     let esHoy = false;
 
-                    // OBLIGATORIO: Forzamos la lectura desde EventDate (La fecha real del evento del calendario)
                     const fechaCruda = f["EventDate"] || f["StartDate"] || f["EventDateTime"] || "";
-                    
                     if (fechaCruda && typeof fechaCruda === 'string') {
                         const partes = fechaCruda.split('T');
                         if (partes[0] && partes[1]) {
-                            fechaTexto = partes[0]; // Captura "2026-05-22" o "2026-05-25"
-                            
-                            // FILTRO CRUGO ANTI-BUGS: Compara texto plano exacto contra el día actual de Santiago
+                            fechaTexto = partes[0]; // Extrae estrictamente "YYYY-MM-DD"
                             esHoy = (fechaTexto === hoyChileString);
                             
                             const subPartesHora = partes[1].split(':');
@@ -283,19 +271,11 @@
                             let minutosOriginales = subPartesHora[1] || "00";
 
                             if (!isNaN(horaOriginal)) {
-                                // Desfase nativo de Microsoft Graph (+4 horas)
                                 let horaAjustada = (horaOriginal + 4) % 24;
-                                
                                 if (parseInt(minutosOriginales, 10) > 0 && parseInt(minutosOriginales, 10) < 10) {
                                     minutosOriginales = "00";
                                 }
-                                
                                 horaTexto = `${String(horaAjustada).padStart(2, '0')}:${minutosOriginales}`;
-                                
-                                // Construimos fecha local exacta para ordenar las tarjetas en la pantalla sin desfase UTC
-                                const [aaaa, mes, dd] = fechaTexto.split('-');
-                                const localDateObj = new Date(parseInt(aaaa,10), parseInt(mes,10) - 1, parseInt(dd,10), horaAjustada, parseInt(minutosOriginales,10), 0);
-                                timestampOrden = localDateObj.getTime();
                             }
                         }
                     }
@@ -305,8 +285,7 @@
                         sala: salaDetected,
                         hora: horaTexto,
                         fechaStr: fechaTexto,
-                        esHoy: esHoy,
-                        ts: timestampOrden
+                        esHoy: esHoy
                     };
                 });
 
@@ -314,18 +293,18 @@
 
                 if (modoVistaSemanas) {
                     tituloSeccion.innerText = "PRÓXIMOS EVENTOS";
-                    // PRÓXIMOS: Excluye al 100% el string de hoy, pateando el viernes y lunes a la otra vista
-                    eventosAMostrar = datosProcesados.filter(ev => !ev.esHoy && ev.ts >= ahoraMiliChile);
+                    // REGLA CRUDA: Si NO es hoy y la fecha es estrictamente mayor que el string actual de hoy, es un evento futuro
+                    eventosAMostrar = datosProcesados.filter(ev => !ev.esHoy && ev.fechaStr > hoyChileString);
                 } else {
                     tituloSeccion.innerText = "EVENTOS DE HOY";
-                    // HOY: Pasa solo si el texto calza idéntico con hoy y falten más de 10 minutos para que termine
-                    eventosAMostrar = datosProcesados.filter(ev => ev.esHoy && ev.ts >= (ahoraMiliChile - 10 * 60 * 1000));
+                    // REGLA CRUDA: Si el string calza idéntico con hoy, Y la hora del evento es mayor o igual a la actual
+                    eventosAMostrar = datosProcesados.filter(ev => ev.esHoy && ev.hora >= horaChileString);
                 }
 
-                // Si hoy no hay nada agendado, se salta el switch y muestra Próximos al tiro
+                // Si la pantalla de hoy se queda vacía, saltar inmediatamente a Próximos Eventos
                 if (eventosAMostrar.length === 0 && !modoVistaSemanas) {
                     tituloSeccion.innerText = "PRÓXIMOS EVENTOS";
-                    eventosAMostrar = datosProcesados.filter(ev => !ev.esHoy && ev.ts >= ahoraMiliChile);
+                    eventosAMostrar = datosProcesados.filter(ev => !ev.esHoy && ev.fechaStr > hoyChileString);
                 }
 
                 if (eventosAMostrar.length === 0) {
@@ -333,15 +312,19 @@
                     return;
                 }
 
-                // Ordenación por tiempo lineal
-                eventosAMostrar.sort((a, b) => a.ts - b.ts);
+                // Orden cronológico exacto combinando Fecha + Hora en formato string (Inmune a bugs de zonas horarias)
+                eventosAMostrar.sort((a, b) => {
+                    const ordenA = `${a.fechaStr} T ${a.hora}`;
+                    const ordenB = `${b.fechaStr} T ${b.hora}`;
+                    return ordenA.localeCompare(ordenB);
+                });
 
                 container.innerHTML = '';
                 
                 eventosAMostrar.forEach(ev => {
                     let etiquetaDia = "Hoy";
                     
-                    if (!ev.esHoy && ev.fechaStr !== "Próximamente") {
+                    if (!ev.esHoy && ev.fechaStr !== "9999-12-31") {
                         try {
                             const [aaaa, mes, dd] = ev.fechaStr.split('-');
                             const d = new Date(parseInt(aaaa,10), parseInt(mes,10) - 1, parseInt(dd,10), 12, 0, 0);
@@ -368,6 +351,7 @@
                     container.appendChild(card);
                 });
 
+                // Cambiar el flag para alternar entre "Eventos de Hoy" y "Próximos Eventos" en el siguiente ciclo
                 modoVistaSemanas = !modoVistaSemanas;
                 setTimeout(iniciarScroll, 1000);
 
@@ -379,7 +363,7 @@
 
         window.onload = () => {
             cargarCartelera();
-            setInterval(cargarCartelera, 30000);
+            setInterval(cargarCartelera, 30000); // Actualiza cada 30 segundos
         };
     </script>
 </body>
