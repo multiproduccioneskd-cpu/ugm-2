@@ -5,16 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cartelera de Eventos UGM</title>
     <style>
-        /* --- ESTILOS BASE (MÓVILES O PANTALLAS PEQUEÑAS) --- */
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
         }
         
-        /* Definimos un tamaño de letra base que se puede escalar */
+        /* 📺 ESCALA BASE DISEÑADA PARA TV GRANDE AL 100% DE ZOOM */
         html {
-            font-size: 16px; 
+            font-size: 13px; 
         }
         
         body {
@@ -26,13 +25,15 @@
             display: flex;
             flex-direction: column;
         }
+        
+        /* HEADER COMPACTO PARA DEJAR ESPACIO A LAS TARJETAS */
         header {
             background-color: #002060;
-            padding: 20px 0px; 
+            padding: 12px 0px; 
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 5px solid #0056b3;
+            border-bottom: 4px solid #0056b3;
             width: 100%;
             position: relative;
         }
@@ -43,7 +44,7 @@
             padding-left: 20px;
         }
         .logo-u {
-            height: 65px;
+            height: 50px;
             width: auto;
         }
         .logo-centro-wrapper {
@@ -56,11 +57,11 @@
             justify-content: center;
         }
         .logo-centro {
-            height: 65px;
+            height: 50px;
             width: auto;
         }
         header h1 {
-            font-size: 2.8rem;
+            font-size: 2.2rem;
             text-transform: uppercase;
             letter-spacing: 1px;
             font-weight: 800;
@@ -69,23 +70,25 @@
             display: flex;
             flex-direction: column;
             align-items: flex-end;
-            gap: 5px;
+            gap: 2px;
             padding-right: 20px; 
         }
         #current-date {
-            font-size: 1.6rem;
+            font-size: 1.3rem;
             color: #ffc000;
             font-weight: bold;
             text-transform: capitalize;
         }
         #current-time {
-            font-size: 2.5rem;
+            font-size: 2rem;
             font-weight: bold;
             color: #ffffff;
         }
+        
+        /* CONTENEDOR PRINCIPAL OPTIMIZADO */
         main {
             flex: 1;
-            padding: 30px;
+            padding: 20px;
             position: relative;
             overflow: hidden;
         }
@@ -94,10 +97,12 @@
             overflow-y: hidden;
             position: relative;
         }
+        
+        /* TARJETAS COMPACTAS: CABEN MÁS EN LA TELE */
         .container {
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 14px; /* Espacio reducido entre tarjetas */
             position: absolute;
             top: 0;
             left: 0;
@@ -110,118 +115,71 @@
         }
         .event-card {
             background-color: #172a45;
-            border-left: 12px solid #0056b3;
-            border-radius: 12px;
-            padding: 30px 45px;
+            border-left: 10px solid #0056b3;
+            border-radius: 10px;
+            padding: 18px 30px; /* Relleno delgado para que respire verticalmente */
             display: flex;
             justify-content: space-between;
             align-items: center;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.4);
         }
         .event-info {
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 8px;
             flex: 1;
         }
         .event-title {
-            font-size: 2.6rem;
+            font-size: 2rem; /* Tamaño de letra perfecto para leer de lejos en 55" */
             font-weight: bold;
             color: #ffffff;
             line-height: 1.2;
         }
         .event-room {
-            font-size: 1.8rem;
+            font-size: 1.4rem;
             color: #000000;
             font-weight: bold;
             background-color: #ffa500;
-            padding: 8px 24px;
-            border-radius: 8px;
+            padding: 5px 18px;
+            border-radius: 6px;
             align-self: flex-start;
             text-transform: uppercase;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            box-shadow: 0 3px 6px rgba(0,0,0,0.2);
         }
         .event-time {
-            font-size: 3.2rem;
+            font-size: 2.6rem;
             font-weight: 800;
             color: #38b6ff;
             background-color: #0b192f;
-            padding: 15px 35px;
-            border-radius: 10px;
+            padding: 10px 25px;
+            border-radius: 8px;
             border: 3px solid #0056b3;
             white-space: nowrap;
             text-align: center;
             display: flex;
             flex-direction: column;
             justify-content: center;
-            min-width: 200px;
+            min-width: 170px;
         }
         .event-day-label {
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             color: #8892b0;
             text-transform: uppercase;
             font-weight: bold;
-            margin-bottom: 4px;
+            margin-bottom: 2px;
             letter-spacing: 1px;
         }
         .no-events {
-            font-size: 2.8rem;
+            font-size: 2.4rem;
             text-align: center;
             color: #8892b0;
             margin-top: 15vh;
             width: 100%;
         }
-
-        /* --- 🚀 OPTIMIZACIÓN AUTOMÁTICA PARA TV 55" (Pantallas grandes) --- */
-        /* Detectamos si la pantalla es más ancha que 1900px (típico de TVs Full HD o 4K) */
-        @media screen and (min-width: 1900px) {
-            
-            /* Reducimos el tamaño de letra base un 20% para compensar el escalado de la TV */
-            html {
-                font-size: 13px; /* Antes 16px */
-            }
-            
-            /* Hacemos los elementos del header un poco más compactos */
-            header {
-                padding: 15px 0px; 
-            }
-            .logo-u, .logo-centro {
-                height: 55px; /* Antes 65px */
-            }
-            header h1 {
-                font-size: 2.4rem; /* Antes 2.8rem */
-            }
-            #current-time {
-                font-size: 2.2rem; /* Antes 2.5rem */
-            }
-            
-            /* Reducimos el relleno de las tarjetas para que quepan más en vertical */
-            main {
-                padding: 20px;
-            }
-            .container {
-                gap: 15px; /* Menos espacio entre tarjetas */
-            }
-            .event-card {
-                padding: 20px 35px; /* Menos relleno interno */
-                border-left-width: 10px;
-            }
-            .event-title {
-                font-size: 2.2rem; /* Antes 2.6rem */
-            }
-            .event-room {
-                font-size: 1.5rem; /* Antes 1.8rem */
-                padding: 6px 20px;
-            }
-            .event-time {
-                font-size: 2.8rem; /* Antes 3.2rem */
-                padding: 10px 25px;
-                min-width: 180px;
-            }
-        }
     </style>
 </head>
 <body>
+
     <header>
         <div class="header-left">
             <img src="https://www.ugm.cl/images/logo.png" alt="UGM" class="logo-u">
@@ -273,35 +231,29 @@
             const wrapperHeight = wrapper.clientHeight;
             const containerHeight = container.clientHeight;
 
-            // CONDICIÓN: Si son 3 o menos eventos Y cabe físico en la pantalla, se quedan FIJOS
+            // INTELLIGENT RULE: Si todo cabe limpio en el alto de la tele, se queda quieto
             if (cantidadEventos <= 3 && containerHeight <= wrapperHeight) {
-                // Se quedan estáticos leyendo en la tele y rotan tras 10 segundos exactos
                 rotationTimeout = setTimeout(() => {
                     container.classList.remove('fade-in');
                     setTimeout(cargarCartelera, 600);
-                }, 10000);
+                }, 10000); // 10 segundos fijos en pantalla
             } else {
-                // Si sobrepasa el espacio, se activa el scroll dinámico controlado
+                // Si sobrepasa, corre el scroll optimizado
                 let currentTop = 0;
                 scrollInterval = setInterval(() => {
                     if (container.clientHeight > wrapper.clientHeight) {
-                        currentTop -= 1; // Desplazamiento fluido
-                        
-                        // Si llegó al final del listado largo
+                        currentTop -= 1;
                         if (Math.abs(currentTop) >= (container.clientHeight - wrapper.clientHeight + 40)) {
                             clearInterval(scrollInterval);
-                            
-                            // Espera 2.5 segundos abajo para que terminen de leer el último ítem
                             rotationTimeout = setTimeout(() => {
                                 container.classList.remove('fade-in');
-                                // Aplica Fade Out y salta de inmediato a la otra ventana
                                 setTimeout(cargarCartelera, 600);
-                            }, 2500);
+                            }, 2500); // Espera abajo y rota
                         } else {
                             container.style.transform = `translateY(${currentTop}px)`;
                         }
                     }
-                }, 35); // Velocidad de scroll optimizada (un pelo más ágil)
+                }, 35); 
             }
         }
 
@@ -322,7 +274,6 @@
                     if (!eventosRaw || eventosRaw.length === 0 || eventosRaw.error) {
                         container.innerHTML = '<div class="no-events">No hay eventos registrados en SharePoint</div>';
                         container.classList.add('fade-in');
-                        // Si está vacío, reintenta en 10 segundos
                         rotationTimeout = setTimeout(cargarCartelera, 10000);
                         return;
                     }
@@ -421,13 +372,9 @@
                         container.appendChild(card);
                     });
 
-                    // Cambiamos el modo para el tiro que viene
                     modoVistaSemanas = !modoVistaSemanas;
-                    
-                    // Activamos la aparición visual suave
                     container.classList.add('fade-in');
                     
-                    // Ejecutamos el validador inteligente de movimiento/fijeza
                     setTimeout(() => {
                         iniciarManejoPantalla(muestraFinal.length);
                     }, 400);
