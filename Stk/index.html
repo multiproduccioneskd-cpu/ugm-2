@@ -38,16 +38,12 @@
         .logo-u {
             height: 65px;
             width: auto;
-            margin-left: 0px;
-            padding-left: 0px;
         }
         header h1 {
             font-size: 2.8rem;
             text-transform: uppercase;
             letter-spacing: 1px;
             font-weight: 800;
-            padding-left: 0px;
-            margin-left: 0px;
         }
         #right-header {
             display: flex;
@@ -232,33 +228,39 @@
                     return;
                 }
 
-                // Fecha y Hora de control en tiempo real de Chile
+                // Control de tiempo actual de Chile para los filtros de las pantallas
                 const hoyChileString = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' }); 
                 const horaChileString = new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Santiago' });
 
-                // Procesamos aplicando la guillotina sobre la columna "Inicio"
                 const listaProcesada = eventosRaw.map(ev => {
                     let fechaTexto = "9999-12-31";
                     let horaTexto = "00:00";
                     let esHoy = false;
 
                     if (ev.casillaTiempo && typeof ev.casillaTiempo === 'string') {
-                        const partes = ev.casillaTiempo.split('T');
-                        if (partes[0] && partes[1]) {
-                            fechaTexto = partes[0]; 
-                            esHoy = (fechaTexto === hoyChileString);
-                            
-                            const subPartesHora = partes[1].split(':');
-                            let horaOriginal = parseInt(subPartesHora[0], 10);
-                            let minutosOriginales = subPartesHora[1] || "00";
+                        // El motor nativo de JavaScript interpreta la 'Z' (UTC) automáticamente
+                        const dateObjeto = new Date(ev.casillaTiempo);
+                        
+                        if (!isNaN(dateObjeto.getTime())) {
+                            // Validamos si es un evento de Todo el Día de SharePoint (suele venir marcando 00:00 o 02:00 UTC)
+                            const esTodoElDia = ev.casillaTiempo.includes("T00:00:00") || ev.casillaTiempo.includes("T02:00:00");
 
-                            if (!isNaN(horaOriginal)) {
-                                // CORRECCIÓN DEFINITIVA: Sumamos las 2 horas de desfase de forma segura
-                                let horaAjustada = (horaOriginal + 2) % 24;
+                            if (esTodoElDia) {
+                                // Para eventos de todo el día, forzamos la fecha del texto original y dejamos la hora oculta/plana
+                                fechaTexto = ev.casillaTiempo.split('T')[0];
+                                horaTexto = "Todo el día";
+                            } else {
+                                // Para eventos con horas normales de asignación, forzamos la traducción a la zona de Santiago
+                                const opcionesFecha = { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'America/Santiago' };
+                                const opcionesHora = { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Santiago' };
                                 
-                                let minsLimpios = minutosOriginales.substring(0, 2);
-                                horaTexto = `${String(horaAjustada).padStart(2, '0')}:${minsLimpios}`;
+                                // Formateamos de forma limpia usando el estándar chileno
+                                const fechaPartes = dateObjeto.toLocaleDateString('sv-SE', opcionesFecha); // Devuelve YYYY-MM-DD
+                                fechaTexto = fechaPartes;
+                                horaTexto = dateObjeto.toLocaleTimeString('es-CL', opcionesHora);
                             }
+                            
+                            esHoy = (fechaTexto === hoyChileString);
                         }
                     }
 
@@ -278,7 +280,8 @@
                     muestraFinal = listaProcesada.filter(ev => !ev.esHoy && ev.fechaStr > hoyChileString);
                 } else {
                     tituloSeccion.innerText = "EVENTOS DE HOY";
-                    muestraFinal = listaProcesada.filter(ev => ev.esHoy && ev.hora >= horaChileString);
+                    // Filtra eventos de hoy que aún estén vigentes comparando el string de hora
+                    muestraFinal = listaProcesada.filter(ev => ev.esHoy && (ev.hora === "Todo el día" || ev.hora >= horaChileString));
                 }
 
                 if (muestraFinal.length === 0 && !modoVistaSemanas) {
@@ -291,7 +294,7 @@
                     return;
                 }
 
-                // Ordenamos cronológicamente usando strings puros combinados
+                // Ordenamos cronológicamente de forma alfabética
                 muestraFinal.sort((a, b) => `${a.fechaStr}T${a.hora}`.localeCompare(`${b.fechaStr}T${b.hora}`));
 
                 container.innerHTML = '';
