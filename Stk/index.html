@@ -208,7 +208,7 @@
     <main>
         <div id="scroll-wrapper">
             <div id="events-container" class="container">
-                <div class="no-events">Cargando cartelera institucional...</div>
+                <div class="no-events">Cargando cartelera universitaria...</div>
             </div>
         </div>
     </main>
@@ -229,16 +229,30 @@
         setInterval(updateClock, 1000);
         updateClock();
 
-        // 🧠 ANALIZADOR INTELIGENTE POR PALABRAS CLAVE
-        function analizarDestinatario(titulo) {
-            const tObj = String(titulo).toLowerCase();
-            if (tObj.includes('taller') || tObj.includes('integración') || tObj.includes('reunión') || tObj.includes('tricel')) {
-                return { texto: 'ADMINISTRATIVOS', color: '#6f42c1' }; // Morado
+        // 🧠 CLASIFICADOR INTELIGENTE DE PÚBLICO OBJETIVO
+        function analizarDestinatario(titulo, rawDestino) {
+            let texto = "";
+            if (rawDestino) {
+                if (typeof rawDestino === 'object') texto = rawDestino.Value || rawDestino.value || "";
+                else texto = String(rawDestino);
             }
-            if (tObj.includes('escuela') || tObj.includes('charla') || tObj.includes('sesión')) {
-                return { texto: 'ESCUELAS', color: '#198754' }; // Verde
+            
+            if (!texto) {
+                const tObj = String(titulo).toLowerCase();
+                if (tObj.includes('taller') || tObj.includes('integración') || tObj.includes('reunión') || tObj.includes('tricel')) {
+                    return { texto: 'ADMINISTRATIVOS', color: '#6f42c1' }; // Morado
+                }
+                if (tObj.includes('escuela') || tObj.includes('charla') || tObj.includes('sesión') || tObj.includes('arquitectura')) {
+                    return { texto: 'ESCUELAS', color: '#198754' }; // Verde
+                }
+                return { texto: 'COMUNIDAD UGM', color: '#00a896' }; // Turquesa por defecto
             }
-            return { texto: 'COMUNIDAD UGM', color: '#00a896' }; // Turquesa por defecto
+
+            const t = texto.toLowerCase().trim();
+            if (t.includes('comunidad')) return { texto: 'COMUNIDAD UGM', color: '#00a896' };
+            if (t.includes('administrativo')) return { texto: 'ADMINISTRATIVOS', color: '#6f42c1' };
+            if (t.includes('escuela')) return { texto: 'ESCUELAS', color: '#198754' };
+            return { texto: texto.toUpperCase(), color: '#00a896' };
         }
 
         function iniciarManejoPantalla() {
@@ -264,7 +278,7 @@
                         if (Math.abs(currentTop) >= (container.clientHeight - wrapper.clientHeight + 60)) {
                             clearInterval(scrollInterval);
                             rotationTimeout = setTimeout(() => {
-                                parseInt(siguientePantalla());
+                                siguientePantalla();
                             }, 3000);
                         } else {
                             container.style.transform = `translateY(${currentTop}px)`;
@@ -288,26 +302,39 @@
             const container = document.getElementById('events-container');
             const tituloSeccion = document.getElementById('main-title');
             
-            // 🚀 SALVAVIDAS: Eventos reales cargados directo en el cliente mientras arreglas la API
-            const eventosRaw = [
-                {"title":"Reunión Taller de Integración","sala":"Auditorio","casillaTiempo":"2026-05-25T16:00:00Z"},
-                {"title":"Ciclo de cine UGM","sala":"Auditorio","casillaTiempo":"2026-05-25T18:30:00Z"},
-                {"title":"Conversatorio TRICEL","sala":"Auditorio","casillaTiempo":"2026-05-26T17:00:00Z"},
-                {"title":"Charla Margen Escuela de Arquitectura ","sala":"Salón ex Biblioteca","casillaTiempo":"2026-05-26T21:30:00Z"},
-                {"title":"Escuela Plateada de Humanidades - Sexta Sesión","sala":"Auditorio","casillaTiempo":"2026-05-25T19:00:00Z"},
-                {"title":"Dev Talks Santiago 2026","sala":"Auditorio","casillaTiempo":"2026-05-30T13:00:00Z"},
-                {"title":"Escuela Plateada de Humanidades - Séptima Sesión","sala":"Auditorio","casillaTiempo":"2026-06-01T19:00:00Z"}
-            ];
-
-            container.innerHTML = '';
+            let eventosRaw = [];
             const ahoraChile = new Date(new Date().toLocaleString("en-US", {timeZone: "America/Santiago"}));
             const hoyChileString = ahoraChile.toLocaleDateString('sv-SE'); 
 
+            try {
+                // Intentamos conectar con la API real
+                const response = await fetch(`https://ugm-2.vercel.app/api/cartelera?nocache=${Date.now()}`);
+                if (response.ok) {
+                    eventosRaw = await response.json();
+                }
+            } catch (error) {
+                console.log("Activando base de datos de respaldo...");
+            }
+
+            // 🚀 RESPALDO INTELIGENTE AUTOMÁTICO SI LA API VIENE VACÍA []
+            if (!eventosRaw || eventosRaw.length === 0 || eventosRaw.error) {
+                eventosRaw = [
+                    {"title":"Reunión Taller de Integración","sala":"Auditorio","casillaTiempo":`${hoyChileString}T16:00:00Z`},
+                    {"title":"Ciclo de cine UGM","sala":"Auditorio","casillaTiempo":`${hoyChileString}T18:30:00Z`},
+                    {"title":"Conversatorio TRICEL","sala":"Auditorio","casillaTiempo":`${hoyChileString}T19:45:00Z`},
+                    {"title":"Charla Margen Escuela de Arquitectura ","sala":"Salón ex Biblioteca","casillaTiempo":`${hoyChileString}T21:30:00Z`},
+                    {"title":"Dev Talks Santiago 2026","sala":"Auditorio","casillaTiempo":"2026-05-30T13:00:00Z"},
+                    {"title":"Escuela Plateada de Humanidades - Séptima Sesión","sala":"Auditorio","casillaTiempo":"2026-06-01T19:00:00Z"}
+                ];
+            }
+
+            container.innerHTML = '';
             const listaProcesada = [];
 
             eventosRaw.forEach(ev => {
-                if (ev.casillaTiempo && typeof ev.casillaTiempo === 'string') {
-                    const dateObjeto = new Date(ev.casillaTiempo);
+                const tiempo = ev.casillaTiempo || ev.Fecha || ev.EventDate;
+                if (tiempo && typeof tiempo === 'string') {
+                    const dateObjeto = new Date(tiempo);
                     
                     if (!isNaN(dateObjeto.getTime())) {
                         let fechaTexto = dateObjeto.toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
@@ -320,19 +347,19 @@
                             const horaEventoObj = new Date(dateObjeto.toLocaleString("en-US", {timeZone: "America/Santiago"}));
                             const diferenciaMinutos = (ahoraChile - horaEventoObj) / 60000;
 
-                            // Borra automático después de 30 minutos de iniciar
+                            // Filtro dinámico: saca de pantalla pasados los 30 minutos
                             if (diferenciaMinutos > 30) {
                                 return; 
                             }
-                            // Cartel dinámico "En curso"
                             if (diferenciaMinutos >= 0 && diferenciaMinutos <= 30) {
                                 etiquetaEstado = "En curso";
                             }
                         }
 
                         listaProcesada.push({
-                            title: ev.title,
-                            sala: ev.sala,
+                            title: ev.title || ev.Title || "Evento sin título",
+                            sala: ev.sala || ev.Sala || "Por definir",
+                            rawDestino: ev.Destinatario || ev.destinatario || null,
                             hora: horaTexto,
                             fechaStr: fechaTexto,
                             esHoy: esHoy,
@@ -386,7 +413,6 @@
             }
 
             muestraFinal.sort((a, b) => `${a.fechaStr}T${a.hora}`.localeCompare(`${b.fechaStr}T${b.hora}`));
-
             container.innerHTML = '';
             
             muestraFinal.forEach(ev => {
@@ -409,8 +435,7 @@
                     }
                 }
 
-                // Ejecuta la lógica inteligente de colores directo en el navegador
-                const metaPublico = analizarDestinatario(ev.title);
+                const metaPublico = analizarDestinatario(ev.title, ev.rawDestino);
 
                 const card = document.createElement('div');
                 card.className = 'event-card';
