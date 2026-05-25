@@ -19,36 +19,27 @@
             display: flex;
             flex-direction: column;
         }
+        
+        /* 🛠️ HEADER REESTRUCTURADO: ESPACIO OPTIMIZADO */
         header {
             background-color: #002060;
             padding: 20px 0px; 
             display: flex;
-            justify-content: space-between;
+            justify-content: space-between; /* Distribuye las esquinas */
             align-items: center;
             border-bottom: 5px solid #0056b3;
             width: 100%;
             position: relative;
         }
+        
+        /* Corremos todo el bloque del título hacia la extrema izquierda */
         .header-left {
             display: flex;
             align-items: center;
             gap: 15px;
-            padding-left: 20px;
+            padding-left: 40px; /* Más margen a la esquina para que no quede pegado al borde físico de la tele */
         }
         .logo-u {
-            height: 65px;
-            width: auto;
-        }
-        .logo-centro-wrapper {
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .logo-centro {
             height: 65px;
             width: auto;
         }
@@ -57,13 +48,32 @@
             text-transform: uppercase;
             letter-spacing: 1px;
             font-weight: 800;
+            white-space: nowrap; /* Evita que el título se rompa en dos líneas */
         }
+        
+        /* El logo blanco-celeste queda blindado en el centro exacto de la barra */
+        .logo-centro-wrapper {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2; /* Asegura que se mantenga al frente sin colisiones */
+        }
+        .logo-centro {
+            height: 65px;
+            width: auto;
+        }
+        
+        /* El reloj y la fecha se quedan en la esquina derecha */
         #right-header {
             display: flex;
             flex-direction: column;
             align-items: flex-end;
             gap: 5px;
-            padding-right: 20px; 
+            padding-right: 40px; /* Simetría con la esquina izquierda */
         }
         #current-date {
             font-size: 1.6rem;
@@ -76,6 +86,7 @@
             font-weight: bold;
             color: #ffffff;
         }
+        
         main {
             flex: 1;
             padding: 30px;
@@ -311,26 +322,20 @@
                 if (modoVistaSemanas) {
                     tituloSeccion.innerText = "PRÓXIMOS EVENTOS";
 
-                    // 🛠️ MOTOR DE VENTANA INTELIGENTE PARA LA SEMANA CONSECUTIVA
                     const fechaActual = new Date();
-                    const diaSemana = fechaActual.getDay(); // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
+                    const diaSemana = fechaActual.getDay(); 
                     
-                    // Calculamos cuántos días faltan para el próximo domingo (cierre de la semana actual)
                     let diasHastaFinDeSemana = 7 - diaSemana;
-                    if (diaSemana === 0) diasHastaFinDeSemana = 0; // Si ya es domingo
+                    if (diaSemana === 0) diasHastaFinDeSemana = 0; 
 
-                    // Si estamos a viernes (5), sábado (6) o domingo (0), ampliamos la ventana 7 días más 
-                    // para capturar el lunes de la semana entrante y que la pantalla no quede en blanco.
                     if (diaSemana === 5 || diaSemana === 6 || diaSemana === 0) {
                         diasHastaFinDeSemana += 7;
                     }
 
-                    // Creamos la fecha límite en formato texto YYYY-MM-DD
                     const fechaLimiteObj = new Date();
                     fechaLimiteObj.setDate(fechaActual.getDate() + diasHastaFinDeSemana);
                     const limiteString = fechaLimiteObj.toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
 
-                    // Filtramos: eventos que sean mayores que HOY pero menores o iguales al límite dinámico
                     muestraFinal = listaProcesada.filter(ev => !ev.esHoy && ev.fechaStr > hoyChileString && ev.fechaStr <= limiteString);
                 } else {
                     tituloSeccion.innerText = "EVENTOS DE HOY";
@@ -339,7 +344,6 @@
 
                 if (muestraFinal.length === 0 && !modoVistaSemanas) {
                     tituloSeccion.innerText = "PRÓXIMOS EVENTOS";
-                    // Fallback si hoy no hay nada: muestra la misma ventana inteligente
                     const fechaActual = new Date();
                     const diaSemana = fechaActual.getDay();
                     let diasHastaFinDeSemana = 7 - diaSemana;
