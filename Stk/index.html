@@ -148,7 +148,7 @@
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
         
-        /* 🏷️ ESTILO BASE PARA LA CAJITA DE DESTINATARIO */
+        /* 🏷️ ESTILO BASE DE LA CAJITA DE DESTINATARIO */
         .event-destinatario {
             font-size: 1.6rem;
             color: #ffffff;
@@ -243,22 +243,39 @@
         setInterval(updateClock, 1000);
         updateClock();
 
-        // 🎨 FUNCIÓN INTELIGENTE DE COLORES PARA EL PÚBLICO
-        function obtenerColorDestinatario(textoPublico) {
-            if (!textoPublico) return '#4a5d6e'; // Gris corporativo si viene vacío
+        // 🎨 MOTOR DE COLOR CORREGIDO PARA EXTRAER DATA BRUTA DE SHAREPOINT
+        function obtenerColorDestinatario(valorBruto) {
+            if (!valorBruto) return '#00a896'; // Si viene vacío o nulo, por defecto el Celeste Corporativo original
             
-            // Limpiamos espacios y pasamos a minúsculas para evitar errores si lo escriben mal en SharePoint
-            const t = textoPublico.toLowerCase().trim();
-            
-            if (t.includes('comunidad')) {
-                return '#00a896'; // Turquesa / Celeste Vivo para Comunidad UGM
-            } else if (t.includes('administrativo')) {
-                return '#6f42c1'; // Morado elegante para Administrativos
-            } else if (t.includes('escuela')) {
-                return '#198754'; // Verde institucional para Escuelas
+            // Si SharePoint nos manda un objeto (Choice field), extraemos su propiedad de texto interno
+            let texto = "";
+            if (typeof valorBruto === 'object') {
+                texto = valorBruto.Value || valorBruto.value || JSON.stringify(valorBruto);
+            } else {
+                texto = String(valorBruto);
             }
             
-            return '#4a5d6e'; // Gris azulado por defecto si es otro tipo
+            // Pasamos a minúsculas y limpiamos espacios fantasmas
+            const t = texto.toLowerCase().trim();
+            
+            if (t.includes('comunidad')) {
+                return '#00a896'; // Turquesa / Celeste Vivo -> Comunidad UGM
+            } else if (t.includes('administrativo')) {
+                return '#6f42c1'; // Morado elegante -> Administrativos
+            } else if (t.includes('escuela')) {
+                return '#198754'; // Verde institucional -> Escuelas
+            }
+            
+            return '#00a896'; // Fallback estético al celeste si no calza ninguna palabra clave
+        }
+
+        // FUNCIÓN AUXILIAR: Mapea el texto limpio para mostrar dentro de la caja
+        function obtenerTextoDestinatario(valorBruto) {
+            if (!valorBruto) return 'TODO PÚBLICO';
+            if (typeof valorBruto === 'object') {
+                return valorBruto.Value || valorBruto.value || 'TODO PÚBLICO';
+            }
+            return String(valorBruto).trim();
         }
 
         function iniciarManejoPantalla() {
@@ -358,10 +375,11 @@
                                 }
                             }
 
+                            // 🚀 CLAVE: Mapeamos usando de forma estricta "destinatario" o "Destinatario" desde SharePoint
                             listaProcesada.push({
                                 title: ev.title || "Evento sin título",
                                 sala: ev.sala || "Por definir",
-                                destino: ev.destinatario || ev.Destinatario || "Todo público", 
+                                rawDestino: ev.destinatario || ev.Destinatario || null, 
                                 hora: horaTexto,
                                 fechaStr: fechaTexto,
                                 esHoy: esHoy,
@@ -438,8 +456,9 @@
                         }
                     }
 
-                    // Calculamos el color de fondo dinámico para esta tarjeta específica
-                    const colorBadge = obtenerColorDestinatario(ev.destino);
+                    // Forzar el cálculo dinámico del color y del texto limpio
+                    const colorBadge = obtenerColorDestinatario(ev.rawDestino);
+                    const textoMostrar = obtenerTextoDestinatario(ev.rawDestino);
 
                     const card = document.createElement('div');
                     card.className = 'event-card';
@@ -449,7 +468,7 @@
                             <div class="event-title">${ev.title}</div>
                             <div class="event-badges">
                                 <div class="event-room">${ev.sala}</div>
-                                <div class="event-destinatario" style="background-color: ${colorBadge};">${ev.destino}</div>
+                                <div class="event-destinatario" style="background-color: ${colorBadge};">${textoMostrar}</div>
                             </div>
                         </div>
                         <div class="event-time">
