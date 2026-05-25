@@ -1,5 +1,5 @@
 module.exports = async (req, res) => {
-    // Cabeceras CORS obligatorias para la tele
+    // Cabeceras CORS obligatorias
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
@@ -11,7 +11,7 @@ module.exports = async (req, res) => {
     }
 
     try {
-        // 1. Obtener Token de Acceso desde Azure Entra ID
+        // 1. Conexión de Token con Azure
         const tokenUrl = `https://login.microsoftonline.com/${process.env.TENANT_ID}/oauth2/v2.0/token`;
         
         const bodyParams = new URLSearchParams();
@@ -30,11 +30,11 @@ module.exports = async (req, res) => {
         const accessToken = tokenData.access_token;
 
         if (!accessToken) {
-            return res.status(500).json({ error: "No se pudo autenticar con Azure" });
+            return res.status(500).json({ error: "No se pudo obtener el token" });
         }
 
-        // 2. Consulta directa a la lista expandiendo todos los campos
-        const graphUrl = `https://graph.microsoft.com/v1.0/sites/${process.env.SHAREPOINT_SITE_ID}/lists/${process.env.SHAREPOINT_LIST_ID}/items?expand=fields`;
+        // 2. 🚀 LA URL PASADA DE CORRESPONDENCIA: Pegarle directo a los ítems usando el mapeo nativo
+        const graphUrl = `https://graph.microsoft.com/v1.0/sites/${process.env.SHAREPOINT_SITE_ID}/lists/${process.env.SHAREPOINT_LIST_ID}/items`;
         
         const graphResponse = await fetch(graphUrl, {
             method: 'GET',
@@ -44,13 +44,12 @@ module.exports = async (req, res) => {
         const graphData = await graphResponse.json();
         const items = graphData.value || [];
 
-        // 3. Mapeo clásico idéntico al original que sí leía tu HTML
+        // 3. Mapeo idéntico al que extraía los datos en tu captura limpia
         const eventosProcesados = items.map(item => {
-            const f = item.fields || {};
             return {
-                title: f.Title || f.title || "Evento sin título",
-                sala: f.Sala || f.sala || "Por definir",
-                fecha: f.Fecha || f.fecha || f.casillaTiempo || f.EventDate || ""
+                title: item.title || (item.fields ? item.fields.Title : "Evento sin título"),
+                sala: item.sala || (item.fields ? item.fields.Sala : "Por definir"),
+                fecha: item.fecha || (item.fields ? (item.fields.Fecha || item.fields.EventDate) : "")
             };
         });
 
@@ -58,7 +57,7 @@ module.exports = async (req, res) => {
         res.status(200).json(eventosProcesados);
 
     } catch (error) {
-        console.error("Error en API Cartelera:", error.message);
-        res.status(500).json({ error: "Error de conexión", detalle: error.message });
+        console.error(error);
+        res.status(500).json({ error: "Error de conexión con SharePoint" });
     }
 };
