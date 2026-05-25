@@ -172,15 +172,6 @@
             margin-bottom: 4px;
             letter-spacing: 1px;
         }
-        .badge-en-curso {
-            color: #ff4a4a !important; 
-            animation: pulse 2s infinite; 
-        }
-        @keyframes pulse {
-            0% { opacity: 0.7; }
-            50% { opacity: 1; }
-            100% { opacity: 0.7; }
-        }
         .no-events {
             font-size: 2.8rem;
             text-align: center;
@@ -193,7 +184,7 @@
 <body>
 
     <header>
-        <h1 id="main-title">EVENTOS DE HOY</h1>
+        <h1 id="main-title">EVENTOS DE LA SEMANA</h1>
         
         <div class="logo-centro-wrapper">
             <img id="logo-medio" src="logo-blanco-celeste.png" alt="Logo Central" class="logo-centro">
@@ -208,7 +199,7 @@
     <main>
         <div id="scroll-wrapper">
             <div id="events-container" class="container">
-                <div class="no-events">Buscando programaciones en SharePoint...</div>
+                <div class="no-events">Conectando con la cartelera...</div>
             </div>
         </div>
     </main>
@@ -216,7 +207,6 @@
     <script>
         let scrollInterval = null;
         let rotationTimeout = null;
-        let modoVistaSemanas = false; 
 
         function updateClock() {
             const ahora = new Date();
@@ -229,11 +219,11 @@
         setInterval(updateClock, 1000);
         updateClock();
 
-        function analizarDestinatario(titulo, rawDestino) {
+        // Lógica de colores corporativos
+        function analizarDestinatario(titulo, destino) {
             let texto = "";
-            if (rawDestino) {
-                if (typeof rawDestino === 'object') texto = rawDestino.Value || rawDestino.value || "";
-                else texto = String(rawDestino);
+            if (destino) {
+                texto = String(destino).toLowerCase().trim();
             }
             
             if (!texto) {
@@ -247,10 +237,16 @@
                 return { texto: 'COMUNIDAD UGM', color: '#00a896' }; 
             }
 
-            const t = texto.toLowerCase().trim();
-            if (t.includes('comunidad')) return { texto: 'COMUNIDAD UGM', color: '#00a896' };
-            if (t.includes('administrativo')) return { texto: 'ADMINISTRATIVOS', color: '#6f42c1' };
-            if (t.includes('escuela')) return { texto: 'ESCUELAS', color: '#198754' };
+            if (texto.includes('administrativo')) {
+                return { texto: 'ADMINISTRATIVOS', color: '#6f42c1' }; // Morado
+            }
+            if (texto.includes('escuela')) {
+                return { texto: 'ESCUELAS', color: '#198754' }; // Verde
+            }
+            if (texto.includes('comunidad')) {
+                return { texto: 'COMUNIDAD UGM', color: '#00a896' }; // Turquesa
+            }
+
             return { texto: texto.toUpperCase(), color: '#00a896' };
         }
 
@@ -267,8 +263,8 @@
 
             if (containerHeight <= wrapperHeight) {
                 rotationTimeout = setTimeout(() => {
-                    siguientePantalla();
-                }, 10000);
+                    cargarCartelera();
+                }, 15000);
             } else {
                 let currentTop = 0;
                 scrollInterval = setInterval(() => {
@@ -277,8 +273,8 @@
                         if (Math.abs(currentTop) >= (container.clientHeight - wrapper.clientHeight + 60)) {
                             clearInterval(scrollInterval);
                             rotationTimeout = setTimeout(() => {
-                                siguientePantalla();
-                            }, 3000);
+                                cargarCartelera();
+                            }, 4000);
                         } else {
                             container.style.transform = `translateY(${currentTop}px)`;
                         }
@@ -287,23 +283,13 @@
             }
         }
 
-        function siguientePantalla() {
-            const container = document.getElementById('events-container');
-            container.classList.remove('fade-in'); 
-            
-            setTimeout(() => {
-                modoVistaSemanas = !modoVistaSemanas; 
-                cargarCartelera();
-            }, 600);
-        }
-
         async function cargarCartelera() {
             const container = document.getElementById('events-container');
-            const tituloSeccion = document.getElementById('main-title');
-            
+            container.classList.remove('fade-in');
+
             try {
                 const response = await fetch(`https://ugm-2.vercel.app/api/cartelera?nocache=${Date.now()}`);
-                if (!response.ok) throw new Error('Error API');
+                if (!response.ok) throw new Error('Error al conectar con la API');
                 
                 const eventosRaw = await response.json();
                 container.innerHTML = '';
@@ -311,119 +297,50 @@
                 if (!eventosRaw || eventosRaw.length === 0 || eventosRaw.error) {
                     container.innerHTML = '<div class="no-events">No hay eventos vigentes registrados en SharePoint</div>';
                     container.classList.add('fade-in');
-                    rotationTimeout = setTimeout(siguientePantalla, 10000);
+                    setTimeout(cargarCartelera, 10000);
                     return;
                 }
-
-                const ahoraChile = new Date(new Date().toLocaleString("en-US", {timeZone: "America/Santiago"}));
-                const hoyChileString = ahoraChile.toLocaleDateString('sv-SE'); 
 
                 const listaProcesada = [];
 
                 eventosRaw.forEach(ev => {
+                    const titulo = ev.title || ev.Title || "Evento sin título";
+                    const sala = ev.sala || ev.Sala || "Por definir";
                     const tiempo = ev.casillaTiempo || ev.Fecha || ev.EventDate;
-                    if (tiempo && typeof tiempo === 'string') {
+                    const destino = ev.destinatario || ev.Destinatario || null;
+
+                    let horaTexto = "--:--";
+                    let etiquetaDia = "Evento";
+
+                    if (tiempo) {
                         const dateObjeto = new Date(tiempo);
-                        
                         if (!isNaN(dateObjeto.getTime())) {
-                            let fechaTexto = dateObjeto.toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
-                            let horaTexto = dateObjeto.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Santiago' });
+                            horaTexto = dateObjeto.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Santiago' });
                             
-                            const esHoy = (fechaTexto === hoyChileString);
-                            let etiquetaEstado = "Hoy";
-
-                            if (esHoy) {
-                                const horaEventoObj = new Date(dateObjeto.toLocaleString("en-US", {timeZone: "America/Santiago"}));
-                                const diferenciaMinutos = (ahoraChile - horaEventoObj) / 60000;
-
-                                if (diferenciaMinutos > 30) {
-                                    return; 
-                                }
-                                if (diferenciaMinutos >= 0 && diferenciaMinutos <= 30) {
-                                    etiquetaEstado = "En curso";
-                                }
+                            try {
+                                const opcionesDia = { weekday: 'short', day: 'numeric', timeZone: 'America/Santiago' };
+                                let diaTxt = dateObjeto.toLocaleDateString('es-CL', opcionesDia).replace('.', '');
+                                etiquetaDia = diaTxt.charAt(0).toUpperCase() + diaTxt.slice(1);
+                            } catch(e) {
+                                etiquetaDia = "Próximo";
                             }
-
-                            listaProcesada.push({
-                                title: ev.title || ev.Title || "Evento sin título",
-                                sala: ev.sala || ev.Sala || "Por definir",
-                                rawDestino: ev.Destinatario || ev.destinatario || null,
-                                hora: horaTexto,
-                                fechaStr: fechaTexto,
-                                esHoy: esHoy,
-                                etiquetaEstado: etiquetaEstado
-                            });
                         }
                     }
+
+                    listaProcesada.push({
+                        title: titulo,
+                        sala: sala,
+                        destino: destino,
+                        hora: horaTexto,
+                        etiquetaDia: etiquetaDia
+                    });
                 });
 
-                let muestraFinal = [];
-
-                if (modoVistaSemanas) {
-                    tituloSeccion.innerText = "PRÓXIMOS EVENTOS";
-                    const fechaActual = new Date();
-                    const diaSemana = fechaActual.getDay(); 
-                    let diasHastaFinDeSemana = 7 - diaSemana;
-                    if (diaSemana === 0) diasHastaFinDeSemana = 0; 
-                    if (diaSemana === 5 || diaSemana === 6 || diaSemana === 0) diasHastaFinDeSemana += 7;
-
-                    const fechaLimiteObj = new Date();
-                    fechaLimiteObj.setDate(fechaActual.getDate() + diasHastaFinDeSemana);
-                    const limiteString = fechaLimiteObj.toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
-
-                    muestraFinal = listaProcesada.filter(ev => !ev.esHoy && ev.fechaStr > hoyChileString && ev.fechaStr <= limiteString);
-                } else {
-                    tituloSeccion.innerText = "EVENTOS DE HOY";
-                    muestraFinal = listaProcesada.filter(ev => ev.esHoy);
-                }
-
-                if (muestraFinal.length === 0 && !modoVistaSemanas) {
-                    tituloSeccion.innerText = "PRÓXIMOS EVENTOS";
-                    const fechaActual = new Date();
-                    const diaSemana = fechaActual.getDay();
-                    let diasHastaFinDeSemana = 7 - diaSemana;
-                    if (diaSemana === 0) diasHastaFinDeSemana = 0;
-                    if (diaSemana === 5 || diaSemana === 6 || diaSemana === 0) diasHastaFinDeSemana += 7;
-
-                    const fechaLimiteObj = new Date();
-                    fechaLimiteObj.setDate(fechaActual.getDate() + diasHastaFinDeSemana);
-                    const limiteString = fechaLimiteObj.toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
-
-                    muestraFinal = listaProcesada.filter(ev => !ev.esHoy && ev.fechaStr > hoyChileString && ev.fechaStr <= limiteString);
-                }
-
-                if (muestraFinal.length === 0) {
-                    container.innerHTML = '<div class="no-events">No hay más eventos programados</div>';
-                    container.classList.add('fade-in');
-                    modoVistaSemanas = !modoVistaSemanas;
-                    rotationTimeout = setTimeout(siguientePantalla, 8000);
-                    return;
-                }
-
-                muestraFinal.sort((a, b) => `${a.fechaStr}T${a.hora}`.localeCompare(`${b.fechaStr}T${b.hora}`));
                 container.innerHTML = '';
                 
-                muestraFinal.forEach(ev => {
-                    let etiquetaDia = ev.etiquetaEstado;
-                    let claseExtra = "";
-
-                    if (etiquetaDia === "En curso") {
-                        claseExtra = "badge-en-curso";
-                    }
-                    
-                    if (!ev.esHoy) {
-                        try {
-                            const [aaaa, mes, dd] = ev.fechaStr.split('-');
-                            const d = new Date(parseInt(aaaa,10), parseInt(mes,10) - 1, parseInt(dd,10), 12, 0, 0);
-                            const nombreDia = d.toLocaleDateString('es-CL', { weekday: 'short' }).replace('.', '');
-                            const numDia = d.getDate();
-                            etiquetaDia = `${nombreDia.charAt(0).toUpperCase() + nombreDia.slice(1)} ${numDia}`;
-                        } catch (e) {
-                            etiquetaDia = "Próximo";
-                        }
-                    }
-
-                    const metaPublico = analizarDestinatario(ev.title, ev.rawDestino);
+                listaProcesada.forEach(ev => {
+                    // Pasamos la variable destino amarrada correctamente
+                    const metaPublico = analizarDestinatario(ev.title, ev.destino);
 
                     const card = document.createElement('div');
                     card.className = 'event-card';
@@ -437,7 +354,7 @@
                             </div>
                         </div>
                         <div class="event-time">
-                            <div class="event-day-label ${claseExtra}">${etiquetaDia}</div>
+                            <div class="event-day-label">${ev.etiquetaDia}</div>
                             <div>${ev.hora}</div>
                         </div>
                     `;
@@ -449,9 +366,9 @@
 
             } catch (error) {
                 console.error(error);
-                container.innerHTML = '<div class="no-events">⚠️ Error de comunicación con el servidor</div>';
+                container.innerHTML = '<div class="no-events">⚠️ Esperando datos estables desde SharePoint...</div>';
                 container.classList.add('fade-in');
-                rotationTimeout = setTimeout(siguientePantalla, 10000);
+                setTimeout(cargarCartelera, 10000);
             }
         }
 
