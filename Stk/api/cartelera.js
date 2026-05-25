@@ -1,5 +1,5 @@
 module.exports = async (req, res) => {
-    // 1. Cabeceras CORS obligatorias para la tele
+    // Cabeceras CORS obligatorias
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
@@ -11,7 +11,7 @@ module.exports = async (req, res) => {
     }
 
     try {
-        // 2. Rescatar Token de Microsoft por HTTP Puro
+        // 1. Obtener Token de Acceso desde Azure Entra ID
         const tokenUrl = `https://login.microsoftonline.com/${process.env.TENANT_ID}/oauth2/v2.0/token`;
         
         const bodyParams = new URLSearchParams();
@@ -30,10 +30,10 @@ module.exports = async (req, res) => {
         const accessToken = tokenData.access_token;
 
         if (!accessToken) {
-            return res.status(500).json({ error: "No se pudo obtener el Access Token de Azure" });
+            return res.status(500).json({ error: "No se pudo autenticar con Azure" });
         }
 
-        // 3. 🚀 EL CAMBIO CLAVE: Traemos todos los 'fields' sin filtros pesados que bloqueen la API
+        // 2. Consulta directa expandiendo todos los campos de SharePoint de un viaje
         const graphUrl = `https://graph.microsoft.com/v1.0/sites/${process.env.SHAREPOINT_SITE_ID}/lists/${process.env.SHAREPOINT_LIST_ID}/items?expand=fields`;
         
         const graphResponse = await fetch(graphUrl, {
@@ -44,11 +44,10 @@ module.exports = async (req, res) => {
         const graphData = await graphResponse.json();
         const items = graphData.value || [];
 
-        // 4. Mapeo ultra-flexible: revisa mayúsculas/minúsculas y extrae el texto si es Choice (objeto)
+        // 3. Mapeo limpio tolerando mayúsculas, minúsculas y objetos tipo Choice
         const eventosProcesados = items.map(item => {
             const f = item.fields || {};
             
-            // Si Destinatario viene como objeto de SharePoint Choice, extraemos el .Value interno
             let rawDestinatario = f.Destinatario || f.destinatario || null;
             if (rawDestinatario && typeof rawDestinatario === 'object') {
                 rawDestinatario = rawDestinatario.Value || rawDestinatario.value || null;
@@ -62,12 +61,12 @@ module.exports = async (req, res) => {
             };
         });
 
-        // 5. Entregar la data fresca al frontend
+        // Respuesta limpia sin caché
         res.setHeader('Cache-Control', 'no-shadow, no-store, must-revalidate');
         res.status(200).json(eventosProcesados);
 
     } catch (error) {
-        console.error("Error en ejecución de API:", error.message);
-        res.status(500).json({ error: "Error de conexión con SharePoint", detalle: error.message });
+        console.error("Error en API Cartelera:", error.message);
+        res.status(500).json({ error: "Error de comunicación", detalle: error.message });
     }
 };
