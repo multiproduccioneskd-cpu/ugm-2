@@ -23,34 +23,48 @@
             background-color: #002060;
             padding: 20px 0px; 
             display: flex;
-            justify-content: space-between;
             align-items: center;
             border-bottom: 5px solid #0056b3;
             width: 100%;
-        }
-        .header-left {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            padding-left: 0px; 
-            margin-left: 0px;
-        }
-        .logo-u {
-            height: 65px;
-            width: auto;
+            height: 110px; 
+            position: relative;
         }
         header h1 {
+            position: absolute;
+            left: 40px; 
+            top: 50%;
+            transform: translateY(-50%);
             font-size: 2.8rem;
             text-transform: uppercase;
             letter-spacing: 1px;
             font-weight: 800;
+            white-space: nowrap;
+            z-index: 2;
+        }
+        .logo-centro-wrapper {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1; 
+        }
+        .logo-centro {
+            height: 65px;
+            width: auto;
         }
         #right-header {
+            position: absolute;
+            right: 40px;
+            top: 50%;
+            transform: translateY(-50%);
             display: flex;
             flex-direction: column;
             align-items: flex-end;
-            gap: 5px;
-            padding-right: 20px; 
+            gap: 2px;
+            z-index: 2;
         }
         #current-date {
             font-size: 1.6rem;
@@ -62,6 +76,7 @@
             font-size: 2.5rem;
             font-weight: bold;
             color: #ffffff;
+            line-height: 1;
         }
         main {
             flex: 1;
@@ -82,13 +97,17 @@
             top: 0;
             left: 0;
             width: 100%;
-            transition: transform 0.3s linear;
+            opacity: 0;
+            transition: transform 0.3s linear, opacity 0.6s ease-in-out;
+        }
+        .container.fade-in {
+            opacity: 1;
         }
         .event-card {
             background-color: #172a45;
             border-left: 12px solid #0056b3;
             border-radius: 12px;
-            padding: 30px 45px;
+            padding: 35px 45px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -101,7 +120,7 @@
             flex: 1;
         }
         .event-title {
-            font-size: 2.6rem;
+            font-size: 2.8rem;
             font-weight: bold;
             color: #ffffff;
             line-height: 1.2;
@@ -110,15 +129,15 @@
             font-size: 1.8rem;
             color: #000000;
             font-weight: bold;
-            background-color: #ffa500;
-            padding: 8px 24px;
+            background-color: #ffa500; 
+            padding: 6px 20px;
             border-radius: 8px;
-            align-self: flex-start;
             text-transform: uppercase;
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            width: fit-content;
         }
         .event-time {
-            font-size: 3.2rem;
+            font-size: 3.5rem;
             font-weight: 800;
             color: #38b6ff;
             background-color: #0b192f;
@@ -130,10 +149,10 @@
             display: flex;
             flex-direction: column;
             justify-content: center;
-            min-width: 200px;
+            min-width: 220px;
         }
         .event-day-label {
-            font-size: 1.2rem;
+            font-size: 1.3rem;
             color: #8892b0;
             text-transform: uppercase;
             font-weight: bold;
@@ -152,10 +171,12 @@
 <body>
 
     <header>
-        <div class="header-left">
-            <img src="https://www.ugm.cl/images/logo.png" alt="UGM" class="logo-u">
-            <h1 id="main-title">EVENTOS DE HOY</h1>
+        <h1 id="main-title">EVENTOS DE HOY</h1>
+        
+        <div class="logo-centro-wrapper">
+            <img id="logo-medio" src="logo-blanco-celeste.png" alt="Logo Central" class="logo-centro">
         </div>
+
         <div id="right-header">
             <div id="current-date">Cargando fecha...</div>
             <div id="current-time">00:00:00</div>
@@ -172,6 +193,7 @@
 
     <script>
         let scrollInterval = null;
+        let rotationTimeout = null;
         let modoVistaSemanas = false; 
 
         function updateClock() {
@@ -185,31 +207,47 @@
         setInterval(updateClock, 1000);
         updateClock();
 
-        function iniciarScroll() {
+        function iniciarManejoPantalla() {
             if (scrollInterval) clearInterval(scrollInterval);
+            if (rotationTimeout) clearTimeout(rotationTimeout);
+            
             const wrapper = document.getElementById('scroll-wrapper');
             const container = document.getElementById('events-container');
-            let currentTop = 0;
-            container.style.transform = `translateY(0px)`;
             
-            scrollInterval = setInterval(() => {
-                const wrapperHeight = wrapper.clientHeight;
-                const containerHeight = container.clientHeight;
-                if (containerHeight > wrapperHeight) {
-                    currentTop -= 1;
-                    if (Math.abs(currentTop) >= (containerHeight - wrapperHeight + 60)) {
-                        clearInterval(scrollInterval);
-                        setTimeout(() => {
-                            container.style.transform = `translateY(0px)`;
-                            setTimeout(iniciarScroll, 2000);
-                        }, 3000);
-                    } else {
-                        container.style.transform = `translateY(${currentTop}px)`;
+            container.style.transform = `translateY(0px)`;
+            const wrapperHeight = wrapper.clientHeight;
+            const containerHeight = container.clientHeight;
+
+            if (containerHeight <= wrapperHeight) {
+                rotationTimeout = setTimeout(() => {
+                    siguientePantalla();
+                }, 10000);
+            } else {
+                let currentTop = 0;
+                scrollInterval = setInterval(() => {
+                    if (container.clientHeight > wrapper.clientHeight) {
+                        currentTop -= 1;
+                        if (Math.abs(currentTop) >= (container.clientHeight - wrapper.clientHeight + 60)) {
+                            clearInterval(scrollInterval);
+                            rotationTimeout = setTimeout(() => {
+                                siguientePantalla();
+                            }, 3000);
+                        } else {
+                            container.style.transform = `translateY(${currentTop}px)`;
+                        }
                     }
-                } else {
-                    container.style.transform = `translateY(0px)`;
-                }
-            }, 40);
+                }, 40);
+            }
+        }
+
+        function siguientePantalla() {
+            const container = document.getElementById('events-container');
+            container.classList.remove('fade-in'); 
+            
+            setTimeout(() => {
+                modoVistaSemanas = !modoVistaSemanas; 
+                cargarCartelera();
+            }, 600);
         }
 
         async function cargarCartelera() {
@@ -225,84 +263,88 @@
                 
                 if (!eventosRaw || eventosRaw.length === 0 || eventosRaw.error) {
                     container.innerHTML = '<div class="no-events">No hay eventos registrados en SharePoint</div>';
+                    container.classList.add('fade-in');
+                    rotationTimeout = setTimeout(siguientePantalla, 10000);
                     return;
                 }
 
-                // Control de tiempo actual de Chile para los filtros de las pantallas
-                const hoyChileString = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' }); 
-                const horaChileString = new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Santiago' });
+                const ahoraChile = new Date(new Date().toLocaleString("en-US", {timeZone: "America/Santiago"}));
+                const hoyChileString = ahoraChile.toLocaleDateString('sv-SE'); 
 
-                const listaProcesada = eventosRaw.map(ev => {
-                    let fechaTexto = "9999-12-31";
-                    let horaTexto = "00:00";
-                    let esHoy = false;
+                const listaProcesada = [];
 
-                    if (ev.casillaTiempo && typeof ev.casillaTiempo === 'string') {
-                        // El motor nativo de JavaScript interpreta la 'Z' (UTC) automáticamente
-                        const dateObjeto = new Date(ev.casillaTiempo);
+                eventosRaw.forEach(ev => {
+                    const tiempo = ev.fecha || ev.Fecha || ev.casillaTiempo;
+                    if (tiempo && typeof tiempo === 'string') {
+                        const dateObjeto = new Date(tiempo);
                         
                         if (!isNaN(dateObjeto.getTime())) {
-                            // Validamos si es un evento de Todo el Día de SharePoint (suele venir marcando 00:00 o 02:00 UTC)
-                            const esTodoElDia = ev.casillaTiempo.includes("T00:00:00") || ev.casillaTiempo.includes("T02:00:00");
-
-                            if (esTodoElDia) {
-                                // Para eventos de todo el día, forzamos la fecha del texto original y dejamos la hora oculta/plana
-                                fechaTexto = ev.casillaTiempo.split('T')[0];
-                                horaTexto = "Todo el día";
-                            } else {
-                                // Para eventos con horas normales de asignación, forzamos la traducción a la zona de Santiago
-                                const opcionesFecha = { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'America/Santiago' };
-                                const opcionesHora = { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Santiago' };
-                                
-                                // Formateamos de forma limpia usando el estándar chileno
-                                const fechaPartes = dateObjeto.toLocaleDateString('sv-SE', opcionesFecha); // Devuelve YYYY-MM-DD
-                                fechaTexto = fechaPartes;
-                                horaTexto = dateObjeto.toLocaleTimeString('es-CL', opcionesHora);
-                            }
+                            let fechaTexto = dateObjeto.toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
+                            let horaTexto = dateObjeto.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Santiago' });
                             
-                            esHoy = (fechaTexto === hoyChileString);
+                            const esHoy = (fechaTexto === hoyChileString);
+
+                            listaProcesada.push({
+                                title: ev.title,
+                                sala: ev.sala,
+                                hora: horaTexto,
+                                fechaStr: fechaTexto,
+                                esHoy: esHoy
+                            });
                         }
                     }
-
-                    return {
-                        title: ev.title || "Evento sin título",
-                        sala: ev.sala || "Por definir",
-                        hora: horaTexto,
-                        fechaStr: fechaTexto,
-                        esHoy: esHoy
-                    };
                 });
 
                 let muestraFinal = [];
 
                 if (modoVistaSemanas) {
                     tituloSeccion.innerText = "PRÓXIMOS EVENTOS";
-                    muestraFinal = listaProcesada.filter(ev => !ev.esHoy && ev.fechaStr > hoyChileString);
+                    const fechaActual = new Date();
+                    const diaSemana = fechaActual.getDay(); 
+                    let diasHastaFinDeSemana = 7 - diaSemana;
+                    if (diaSemana === 0) diasHastaFinDeSemana = 0; 
+                    if (diaSemana === 5 || diaSemana === 6 || diaSemana === 0) diasHastaFinDeSemana += 7;
+
+                    const fechaLimiteObj = new Date();
+                    fechaLimiteObj.setDate(fechaActual.getDate() + diasHastaFinDeSemana);
+                    const limiteString = fechaLimiteObj.toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
+
+                    muestraFinal = listaProcesada.filter(ev => !ev.esHoy && ev.fechaStr > hoyChileString && ev.fechaStr <= limiteString);
                 } else {
                     tituloSeccion.innerText = "EVENTOS DE HOY";
-                    // Filtra eventos de hoy que aún estén vigentes comparando el string de hora
-                    muestraFinal = listaProcesada.filter(ev => ev.esHoy && (ev.hora === "Todo el día" || ev.hora >= horaChileString));
+                    muestraFinal = listaProcesada.filter(ev => ev.esHoy);
                 }
 
                 if (muestraFinal.length === 0 && !modoVistaSemanas) {
                     tituloSeccion.innerText = "PRÓXIMOS EVENTOS";
-                    muestraFinal = listaProcesada.filter(ev => !ev.esHoy && ev.fechaStr > hoyChileString);
+                    const fechaActual = new Date();
+                    const diaSemana = fechaActual.getDay();
+                    let diasHastaFinDeSemana = 7 - diaSemana;
+                    if (diaSemana === 0) diasHastaFinDeSemana = 0;
+                    if (diaSemana === 5 || diaSemana === 6 || diaSemana === 0) diasHastaFinDeSemana += 7;
+
+                    const fechaLimiteObj = new Date();
+                    fechaLimiteObj.setDate(fechaActual.getDate() + diasHastaFinDeSemana);
+                    const limiteString = fechaLimiteObj.toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
+
+                    muestraFinal = listaProcesada.filter(ev => !ev.esHoy && ev.fechaStr > hoyChileString && ev.fechaStr <= limiteString);
                 }
 
                 if (muestraFinal.length === 0) {
                     container.innerHTML = '<div class="no-events">No hay más eventos programados</div>';
+                    container.classList.add('fade-in');
+                    modoVistaSemanas = !modoVistaSemanas;
+                    rotationTimeout = setTimeout(siguientePantalla, 8000);
                     return;
                 }
 
-                // Ordenamos cronológicamente de forma alfabética
                 muestraFinal.sort((a, b) => `${a.fechaStr}T${a.hora}`.localeCompare(`${b.fechaStr}T${b.hora}`));
-
                 container.innerHTML = '';
                 
                 muestraFinal.forEach(ev => {
                     let etiquetaDia = "Hoy";
                     
-                    if (!ev.esHoy && ev.fechaStr !== "9999-12-31") {
+                    if (!ev.esHoy) {
                         try {
                             const [aaaa, mes, dd] = ev.fechaStr.split('-');
                             const d = new Date(parseInt(aaaa,10), parseInt(mes,10) - 1, parseInt(dd,10), 12, 0, 0);
@@ -316,6 +358,7 @@
 
                     const card = document.createElement('div');
                     card.className = 'event-card';
+                    
                     card.innerHTML = `
                         <div class="event-info">
                             <div class="event-title">${ev.title}</div>
@@ -329,18 +372,19 @@
                     container.appendChild(card);
                 });
 
-                modoVistaSemanas = !modoVistaSemanas;
-                setTimeout(iniciarScroll, 1000);
+                container.classList.add('fade-in');
+                setTimeout(iniciarManejoPantalla, 400);
 
             } catch (error) {
                 console.error(error);
-                container.innerHTML = '<div class="no-events">⚠️ Error de conexión</div>';
+                container.innerHTML = '<div class="no-events">⚠️ Error de conexión con el servidor</div>';
+                container.classList.add('fade-in');
+                rotationTimeout = setTimeout(siguientePantalla, 10000);
             }
         }
 
         window.onload = () => {
             cargarCartelera();
-            setInterval(cargarCartelera, 30000);
         };
     </script>
 </body>
