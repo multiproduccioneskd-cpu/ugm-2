@@ -1,5 +1,5 @@
 module.exports = async (req, res) => {
-    // Cabeceras CORS obligatorias
+    // Cabeceras CORS limpias para la tele
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
@@ -11,7 +11,7 @@ module.exports = async (req, res) => {
     }
 
     try {
-        // 1. Conexión de Token con Azure
+        // 1. Autenticación limpia con Azure para sacar el Token
         const tokenUrl = `https://login.microsoftonline.com/${process.env.TENANT_ID}/oauth2/v2.0/token`;
         
         const bodyParams = new URLSearchParams();
@@ -30,11 +30,12 @@ module.exports = async (req, res) => {
         const accessToken = tokenData.access_token;
 
         if (!accessToken) {
-            return res.status(500).json({ error: "No se pudo obtener el token" });
+            return res.status(500).json({ error: "Error de autenticación con Azure" });
         }
 
-        // 2. 🚀 LA URL PASADA DE CORRESPONDENCIA: Pegarle directo a los ítems usando el mapeo nativo
-        const graphUrl = `https://graph.microsoft.com/v1.0/sites/${process.env.SHAREPOINT_SITE_ID}/lists/${process.env.SHAREPOINT_LIST_ID}/items`;
+        // 2. 🚀 LA URL CORECTA: Le pegamos a la API de SharePoint solicitando las "columns" y "renderListData" 
+        // para que devuelva los valores de las celdas directamente en el primer nivel del JSON
+        const graphUrl = `https://graph.microsoft.com/v1.0/sites/${process.env.SHAREPOINT_SITE_ID}/lists/${process.env.SHAREPOINT_LIST_ID}/items?expand=fields($select=Title,Sala,Fecha,EventDate)`;
         
         const graphResponse = await fetch(graphUrl, {
             method: 'GET',
@@ -44,12 +45,13 @@ module.exports = async (req, res) => {
         const graphData = await graphResponse.json();
         const items = graphData.value || [];
 
-        // 3. Mapeo idéntico al que extraía los datos en tu captura limpia
+        // 3. Mapeo definitivo: Si SharePoint cambia las mayúsculas/minúsculas, las atajamos todas
         const eventosProcesados = items.map(item => {
+            const f = item.fields || {};
             return {
-                title: item.title || (item.fields ? item.fields.Title : "Evento sin título"),
-                sala: item.sala || (item.fields ? item.fields.Sala : "Por definir"),
-                fecha: item.fecha || (item.fields ? (item.fields.Fecha || item.fields.EventDate) : "")
+                title: f.Title || f.title || item.title || "Evento sin título",
+                sala: f.Sala || f.sala || item.sala || "Por definir",
+                fecha: f.Fecha || f.fecha || f.EventDate || item.fecha || ""
             };
         });
 
@@ -57,7 +59,7 @@ module.exports = async (req, res) => {
         res.status(200).json(eventosProcesados);
 
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: "Error de conexión con SharePoint" });
+        console.error("Error en el mapeo de la API:", error);
+        res.status(500).json({ error: "Error interno apuntando a SharePoint", detalle: error.message });
     }
 };
