@@ -1,60 +1,75 @@
-module.exports = async function handler(req, res) {
+module.exports = async (req, res) => {
+    // Cabeceras CORS obligatorias
+    res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
 
-    if (req.method === 'OPTIONS') return res.status(200).end();
+    if (req.method === 'OPTIONS') {
+        res.status(200).end();
+        return;
+    }
 
     try {
-        const { TENANT_ID, CLIENT_ID, CLIENT_SECRET } = process.env;
-
-        const tokenUrl = `https://login.microsoftonline.com/${TENANT_ID}/oauth2/v2.0/token`;
-        const params = new URLSearchParams({
-            client_id: CLIENT_ID,
-            scope: 'https://graph.microsoft.com/.default',
-            client_secret: CLIENT_SECRET,
-            grant_type: 'client_credentials'
-        });
-
-        const tokenRes = await fetch(tokenUrl, {
-            method: 'POST',
-            body: params,
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-        });
+        // 1. Obtener Token de Acceso desde Azure Entra ID
+        const tokenUrl = `https://login.microsoftonline.com/${process.env.TENANT_ID}/oauth2/v2.0/token`;
         
-        if (!tokenRes.ok) throw new Error("Error en Token Azure");
-        const tokenData = await tokenRes.json();
+        const bodyParams = new URLSearchParams();
+        bodyParams.append('client_id', process.env.CLIENT_ID);
+        bodyParams.append('scope', 'https://graph.microsoft.com/.default');
+        bodyParams.append('client_secret', process.env.CLIENT_SECRET);
+        bodyParams.append('grant_type', 'client_credentials');
+
+        const tokenResponse = await fetch(tokenUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: bodyParams.toString()
+        });
+
+        const tokenData = await tokenResponse.json();
         const accessToken = tokenData.access_token;
 
-        const graphUrl = `https://graph.microsoft.com/v1.0/sites/ugmchile.sharepoint.com:/sites/Calen:/lists/lista%20calen/items?expand=fields&$top=100`;
-        const graphRes = await fetch(graphUrl, {
+        if (!accessToken) {
+            return res.status(500).json({ error: "No se pudo autenticar con Azure" });
+        }
+
+        // 2. Consulta directa a la lista expandiendo todos los campos de un viaje
+        const graphUrl = `https://graph.microsoft.com/v1.0/sites/${process.env.SHAREPOINT_SITE_ID}/lists/${process.env.SHAREPOINT_LIST_ID}/items?expand=fields`;
+        
+        const graphResponse = await fetch(graphUrl, {
             method: 'GET',
-            headers: { 'Authorization': `Bearer ${accessToken}`, 'Accept': 'application/json' }
+            headers: { 'Authorization': `Bearer ${accessToken}` }
         });
 
-        if (!graphRes.ok) throw new Error("Microsoft Graph no respondió");
-        const graphData = await graphRes.json();
-        const rawItems = graphData.value || [];
+        const graphData = await graphResponse.json();
+        const items = graphData.value || [];
 
-        const eventosNormalizados = rawItems.map(item => {
+        // 3. Mapeo ultra-flexible para heredar "Destinatario" sin errores
+        const eventosProcesados = items.map(item => {
             const f = item.fields || {};
             
-            // Pescamos la columna Unicode exacta de la sala
-            let salaReal = f.Ubicaci_x00f3_n || f.Sala || f.Ubicacion || "Por definir";
+            // Atajamos cualquier variación de nombre de columna en SharePoint
+            let valorDestinatario = f.Destinatario || f.destinatario || f.Destinatarios || f.destinatarios || null;
             
-            // Pescamos la columna real de la fecha del evento
-            let casillaTiempo = f.Inicio || "";
+            // Si SharePoint lo maneja como un objeto Choice de Microsoft Graph, extraemos el texto de adentro
+            if (valorDestinatario && typeof valorDestinatario === 'object') {
+                valorDestinatario = valorDestinatario.Value || valorDestinatario.value || JSON.stringify(valorDestinatario);
+            }
 
             return {
-                title: f.Title || f.LinkTitle || "Evento sin título",
-                sala: salaReal,
-                casillaTiempo: casillaTiempo
+                title: f.Title || f.title || "Evento sin título",
+                sala: f.Sala || f.sala || "Por definir",
+                casillaTiempo: f.Fecha || f.fecha || f.casillaTiempo || f.EventDate || null,
+                destinatario: valorDestinatario ? String(valorDestinatario).trim() : null
             };
         });
 
-        return res.status(200).json(eventosNormalizados);
+        // Forzar respuesta fresca sin caché vieja
+        res.setHeader('Cache-Control', 'no-shadow, no-store, must-revalidate');
+        res.status(200).json(eventosProcesados);
 
     } catch (error) {
-        return res.status(500).json({ error: true, mensaje: error.message });
+        console.error("Error en API Cartelera:", error.message);
+        res.status(500).json({ error: "Error de comunicación", detalle: error.message });
     }
 };
