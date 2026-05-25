@@ -131,7 +131,7 @@
             line-height: 1.2;
         }
         
-        /* Contenedor para que las etiquetas de ubicación y destino queden una al lado de la otra */
+        /* Contenedor de las cajitas informativas */
         .event-badges {
             display: flex;
             gap: 15px;
@@ -142,19 +142,19 @@
             font-size: 1.6rem;
             color: #000000;
             font-weight: bold;
-            background-color: #ffa500; /* Naranja original */
+            background-color: #ffa500; 
             padding: 6px 20px;
             border-radius: 8px;
             text-transform: uppercase;
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
         
-        /* 🏷️ NUEVO ESTILO: CAJITA DE DESTINATARIO */
+        /* 🏷️ Estilo para la cajita de destinatario */
         .event-destinatario {
             font-size: 1.6rem;
             color: #ffffff;
             font-weight: bold;
-            background-color: #00a896; /* Color turquesa/celeste oscuro que contrasta hermoso */
+            background-color: #00a896; /* Turquesa oscuro súper corporativo */
             padding: 6px 20px;
             border-radius: 8px;
             text-transform: uppercase;
@@ -235,15 +235,11 @@
 
         function updateClock() {
             const ahora = new Date();
-            document.getElementById('current-time').innerText = ScientificAudioTimeString(ahora);
+            document.getElementById('current-time').innerText = ahora.toLocaleTimeString('es-CL', { hour12: false });
             
             const opciones = { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Santiago' };
             let fechaTexto = ahora.toLocaleDateString('es-CL', opciones);
             document.getElementById('current-date').innerText = fechaTexto.charAt(0).toUpperCase() + fechaTexto.slice(1);
-        }
-        
-        function ScientificAudioTimeString(date) {
-            return date.toLocaleTimeString('es-CL', { hour12: false });
         }
         setInterval(updateClock, 1000);
         updateClock();
@@ -345,10 +341,11 @@
                                 }
                             }
 
+                            // 🛠️ Mapeo blindado para capturar la nueva columna sin importar mayúscula o minúscula
                             listaProcesada.push({
                                 title: ev.title || "Evento sin título",
                                 sala: ev.sala || "Por definir",
-                                destino: ev.destino || "Todo público", // 🚀 CAPTURA DE LA NUEVA COLUMNA DE SHAREPOINT
+                                destino: ev.destinatario || ev.Destinatario || "Todo público", 
                                 hora: horaTexto,
                                 fechaStr: fechaTexto,
                                 esHoy: esHoy,
@@ -428,7 +425,6 @@
                     const card = document.createElement('div');
                     card.className = 'event-card';
                     
-                    // 🚀 RENDERIZADO: Inyectamos la estructura flex con el nuevo cuadrado al lado de la sala
                     card.innerHTML = `
                         <div class="event-info">
                             <div class="event-title">${ev.title}</div>
