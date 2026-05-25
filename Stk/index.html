@@ -20,24 +20,28 @@
             flex-direction: column;
         }
         
-        /* 🛠️ HEADER REESTRUCTURADO: ESPACIO OPTIMIZADO */
+        /* 🛠️ HEADER PERFECCIONADO CON ALINEACIÓN SIMÉTRICA */
         header {
             background-color: #002060;
             padding: 20px 0px; 
             display: flex;
-            justify-content: space-between; /* Distribuye las esquinas */
             align-items: center;
             border-bottom: 5px solid #0056b3;
             width: 100%;
+            height: 110px; /* Alto fijo para que no salte al cambiar textos */
             position: relative;
         }
         
-        /* Corremos todo el bloque del título hacia la extrema izquierda */
+        /* Contenedor izquierdo alineado exactamente igual que el derecho (40px de la orilla) */
         .header-left {
+            position: absolute;
+            left: 40px;
+            top: 50%;
+            transform: translateY(-50%);
             display: flex;
             align-items: center;
-            gap: 15px;
-            padding-left: 40px; /* Más margen a la esquina para que no quede pegado al borde físico de la tele */
+            gap: 20px;
+            z-index: 2;
         }
         .logo-u {
             height: 65px;
@@ -48,10 +52,10 @@
             text-transform: uppercase;
             letter-spacing: 1px;
             font-weight: 800;
-            white-space: nowrap; /* Evita que el título se rompa en dos líneas */
+            white-space: nowrap;
         }
         
-        /* El logo blanco-celeste queda blindado en el centro exacto de la barra */
+        /* Logo blanco-celeste blindado en el centro absoluto */
         .logo-centro-wrapper {
             position: absolute;
             left: 50%;
@@ -60,20 +64,24 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 2; /* Asegura que se mantenga al frente sin colisiones */
+            z-index: 1; 
         }
         .logo-centro {
             height: 65px;
             width: auto;
         }
         
-        /* El reloj y la fecha se quedan en la esquina derecha */
+        /* Contenedor derecho clavado a 40px de la orilla */
         #right-header {
+            position: absolute;
+            right: 40px;
+            top: 50%;
+            transform: translateY(-50%);
             display: flex;
             flex-direction: column;
             align-items: flex-end;
-            gap: 5px;
-            padding-right: 40px; /* Simetría con la esquina izquierda */
+            gap: 2px;
+            z-index: 2;
         }
         #current-date {
             font-size: 1.6rem;
@@ -85,6 +93,7 @@
             font-size: 2.5rem;
             font-weight: bold;
             color: #ffffff;
+            line-height: 1;
         }
         
         main {
@@ -294,125 +303,125 @@
                         if (!isNaN(dateObjeto.getTime())) {
                             const esTodoElDia = ev.casillaTiempo.includes("T00:00:00") || ev.casillaTiempo.includes("T02:00:00");
 
-                            if (esTodoElDia) {
-                                fechaTexto = ev.casillaTiempo.split('T')[0];
-                                horaTexto = "Todo el día";
-                            } else {
-                                const opcionesFecha = { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'America/Santiago' };
-                                const opcionesHora = { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Santiago' };
-                                
-                                fechaTexto = dateObjeto.toLocaleDateString('sv-SE', opcionesFecha);
-                                horaTexto = dateObjeto.toLocaleTimeString('es-CL', opcionesHora);
+                                if (esTodoElDia) {
+                                    fechaTexto = ev.casillaTiempo.split('T')[0];
+                                    horaTexto = "Todo el día";
+                                } else {
+                                    const opcionesFecha = { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'America/Santiago' };
+                                    const opcionesHora = { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Santiago' };
+                                    
+                                    fechaTexto = dateObjeto.toLocaleDateString('sv-SE', opcionesFecha);
+                                    horaTexto = dateObjeto.toLocaleTimeString('es-CL', opcionesHora);
+                                }
+                                esHoy = (fechaTexto === hoyChileString);
                             }
-                            esHoy = (fechaTexto === hoyChileString);
                         }
+
+                        return {
+                            title: ev.title || "Evento sin título",
+                            sala: ev.sala || "Por definir",
+                            hora: horaTexto,
+                            fechaStr: fechaTexto,
+                            esHoy: esHoy
+                        };
+                    });
+
+                    let muestraFinal = [];
+
+                    if (modoVistaSemanas) {
+                        tituloSeccion.innerText = "PRÓXIMOS EVENTOS";
+
+                        const fechaActual = new Date();
+                        const diaSemana = fechaActual.getDay(); 
+                        
+                        let diasHastaFinDeSemana = 7 - diaSemana;
+                        if (diaSemana === 0) diasHastaFinDeSemana = 0; 
+
+                        if (diaSemana === 5 || diaSemana === 6 || diaSemana === 0) {
+                            diasHastaFinDeSemana += 7;
+                        }
+
+                        const fechaLimiteObj = new Date();
+                        fechaLimiteObj.setDate(fechaActual.getDate() + diasHastaFinDeSemana);
+                        const limiteString = fechaLimiteObj.toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
+
+                        muestraFinal = listaProcesada.filter(ev => !ev.esHoy && ev.fechaStr > hoyChileString && ev.fechaStr <= limiteString);
+                    } else {
+                        tituloSeccion.innerText = "EVENTOS DE HOY";
+                        muestraFinal = listaProcesada.filter(ev => ev.esHoy && (ev.hora === "Todo el día" || ev.hora >= horaChileString));
                     }
 
-                    return {
-                        title: ev.title || "Evento sin título",
-                        sala: ev.sala || "Por definir",
-                        hora: horaTexto,
-                        fechaStr: fechaTexto,
-                        esHoy: esHoy
-                    };
-                });
+                    if (muestraFinal.length === 0 && !modoVistaSemanas) {
+                        tituloSeccion.innerText = "PRÓXIMOS EVENTOS";
+                        const fechaActual = new Date();
+                        const diaSemana = fechaActual.getDay();
+                        let diasHastaFinDeSemana = 7 - diaSemana;
+                        if (diaSemana === 0) diasHastaFinDeSemana = 0;
+                        if (diaSemana === 5 || diaSemana === 6 || diaSemana === 0) diasHastaFinDeSemana += 7;
 
-                let muestraFinal = [];
+                        const fechaLimiteObj = new Date();
+                        fechaLimiteObj.setDate(fechaActual.getDate() + diasHastaFinDeSemana);
+                        const limiteString = fechaLimiteObj.toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
 
-                if (modoVistaSemanas) {
-                    tituloSeccion.innerText = "PRÓXIMOS EVENTOS";
+                        muestraFinal = listaProcesada.filter(ev => !ev.esHoy && ev.fechaStr > hoyChileString && ev.fechaStr <= limiteString);
+                    }
 
-                    const fechaActual = new Date();
-                    const diaSemana = fechaActual.getDay(); 
+                    if (muestraFinal.length === 0) {
+                        container.innerHTML = '<div class="no-events">No hay más eventos programados</div>';
+                        container.classList.add('fade-in');
+                        modoVistaSemanas = !modoVistaSemanas;
+                        rotationTimeout = setTimeout(siguientePantalla, 8000);
+                        return;
+                    }
+
+                    muestraFinal.sort((a, b) => `${a.fechaStr}T${a.hora}`.localeCompare(`${b.fechaStr}T${b.hora}`));
+
+                    container.innerHTML = '';
                     
-                    let diasHastaFinDeSemana = 7 - diaSemana;
-                    if (diaSemana === 0) diasHastaFinDeSemana = 0; 
+                    muestraFinal.forEach(ev => {
+                        let etiquetaDia = "Hoy";
+                        
+                        if (!ev.esHoy && ev.fechaStr !== "9999-12-31") {
+                            try {
+                                const [aaaa, mes, dd] = ev.fechaStr.split('-');
+                                const d = new Date(parseInt(aaaa,10), parseInt(mes,10) - 1, parseInt(dd,10), 12, 0, 0);
+                                const nombreDia = d.toLocaleDateString('es-CL', { weekday: 'short' }).replace('.', '');
+                                const numDia = d.getDate();
+                                etiquetaDia = `${nombreDia.charAt(0).toUpperCase() + nombreDia.slice(1)} ${numDia}`;
+                            } catch (e) {
+                                etiquetaDia = "Próximo";
+                            }
+                        }
 
-                    if (diaSemana === 5 || diaSemana === 6 || diaSemana === 0) {
-                        diasHastaFinDeSemana += 7;
-                    }
+                        const card = document.createElement('div');
+                        card.className = 'event-card';
+                        card.innerHTML = `
+                            <div class="event-info">
+                                <div class="event-title">${ev.title}</div>
+                                <div class="event-room">${ev.sala}</div>
+                            </div>
+                            <div class="event-time">
+                                <div class="event-day-label">${etiquetaDia}</div>
+                                <div>${ev.hora}</div>
+                            </div>
+                        `;
+                        container.appendChild(card);
+                    });
 
-                    const fechaLimiteObj = new Date();
-                    fechaLimiteObj.setDate(fechaActual.getDate() + diasHastaFinDeSemana);
-                    const limiteString = fechaLimiteObj.toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
-
-                    muestraFinal = listaProcesada.filter(ev => !ev.esHoy && ev.fechaStr > hoyChileString && ev.fechaStr <= limiteString);
-                } else {
-                    tituloSeccion.innerText = "EVENTOS DE HOY";
-                    muestraFinal = listaProcesada.filter(ev => ev.esHoy && (ev.hora === "Todo el día" || ev.hora >= horaChileString));
-                }
-
-                if (muestraFinal.length === 0 && !modoVistaSemanas) {
-                    tituloSeccion.innerText = "PRÓXIMOS EVENTOS";
-                    const fechaActual = new Date();
-                    const diaSemana = fechaActual.getDay();
-                    let diasHastaFinDeSemana = 7 - diaSemana;
-                    if (diaSemana === 0) diasHastaFinDeSemana = 0;
-                    if (diaSemana === 5 || diaSemana === 6 || diaSemana === 0) diasHastaFinDeSemana += 7;
-
-                    const fechaLimiteObj = new Date();
-                    fechaLimiteObj.setDate(fechaActual.getDate() + diasHastaFinDeSemana);
-                    const limiteString = fechaLimiteObj.toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
-
-                    muestraFinal = listaProcesada.filter(ev => !ev.esHoy && ev.fechaStr > hoyChileString && ev.fechaStr <= limiteString);
-                }
-
-                if (muestraFinal.length === 0) {
-                    container.innerHTML = '<div class="no-events">No hay más eventos programados</div>';
                     container.classList.add('fade-in');
-                    modoVistaSemanas = !modoVistaSemanas;
-                    rotationTimeout = setTimeout(siguientePantalla, 8000);
-                    return;
+                    setTimeout(iniciarManejoPantalla, 400);
+
+                } catch (error) {
+                    console.error(error);
+                    container.innerHTML = '<div class="no-events">⚠️ Error de conexión</div>';
+                    container.classList.add('fade-in');
+                    rotationTimeout = setTimeout(siguientePantalla, 10000);
                 }
-
-                muestraFinal.sort((a, b) => `${a.fechaStr}T${a.hora}`.localeCompare(`${b.fechaStr}T${b.hora}`));
-
-                container.innerHTML = '';
-                
-                muestraFinal.forEach(ev => {
-                    let etiquetaDia = "Hoy";
-                    
-                    if (!ev.esHoy && ev.fechaStr !== "9999-12-31") {
-                        try {
-                            const [aaaa, mes, dd] = ev.fechaStr.split('-');
-                            const d = new Date(parseInt(aaaa,10), parseInt(mes,10) - 1, parseInt(dd,10), 12, 0, 0);
-                            const nombreDia = d.toLocaleDateString('es-CL', { weekday: 'short' }).replace('.', '');
-                            const numDia = d.getDate();
-                            etiquetaDia = `${nombreDia.charAt(0).toUpperCase() + nombreDia.slice(1)} ${numDia}`;
-                        } catch (e) {
-                            etiquetaDia = "Próximo";
-                        }
-                    }
-
-                    const card = document.createElement('div');
-                    card.className = 'event-card';
-                    card.innerHTML = `
-                        <div class="event-info">
-                            <div class="event-title">${ev.title}</div>
-                            <div class="event-room">${ev.sala}</div>
-                        </div>
-                        <div class="event-time">
-                            <div class="event-day-label">${etiquetaDia}</div>
-                            <div>${ev.hora}</div>
-                        </div>
-                    `;
-                    container.appendChild(card);
-                });
-
-                container.classList.add('fade-in');
-                setTimeout(iniciarManejoPantalla, 400);
-
-            } catch (error) {
-                console.error(error);
-                container.innerHTML = '<div class="no-events">⚠️ Error de conexión</div>';
-                container.classList.add('fade-in');
-                rotationTimeout = setTimeout(siguientePantalla, 10000);
             }
-        }
 
-        window.onload = () => {
-            cargarCartelera();
-        };
+            window.onload = () => {
+                cargarCartelera();
+            };
     </script>
 </body>
 </html>
