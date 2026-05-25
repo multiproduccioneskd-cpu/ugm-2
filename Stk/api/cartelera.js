@@ -1,90 +1,64 @@
-export default async function handler(req, res) {
+module.exports = async (req, res) => {
+    // Cabeceras CORS obligatorias para la tele
+    res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
 
-    if (req.method === 'OPTIONS') return res.status(200).end();
+    if (req.method === 'OPTIONS') {
+        res.status(200).end();
+        return;
+    }
 
     try {
-        const { TENANT_ID, CLIENT_ID, CLIENT_SECRET } = process.env;
-
-        // 1. Token Azure
-        const tokenUrl = `https://login.microsoftonline.com/${TENANT_ID}/oauth2/v2.0/token`;
-        const params = new URLSearchParams({
-            client_id: CLIENT_ID,
-            scope: 'https://graph.microsoft.com/.default',
-            client_secret: CLIENT_SECRET,
-            grant_type: 'client_credentials'
-        });
-
-        const tokenRes = await fetch(tokenUrl, {
-            method: 'POST',
-            body: params,
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-        });
+        // 1. Obtener Token de Acceso desde Azure Entra ID
+        const tokenUrl = `https://login.microsoftonline.com/${process.env.TENANT_ID}/oauth2/v2.0/token`;
         
-        if (!tokenRes.ok) {
-            const errText = await tokenRes.text();
-            throw new Error(`Error Azure Token: ${errText}`);
-        }
-        const tokenData = await tokenRes.json();
+        const bodyParams = new URLSearchParams();
+        bodyParams.append('client_id', process.env.CLIENT_ID);
+        bodyParams.append('scope', 'https://graph.microsoft.com/.default');
+        bodyParams.append('client_secret', process.env.CLIENT_SECRET);
+        bodyParams.append('grant_type', 'client_credentials');
+
+        const tokenResponse = await fetch(tokenUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: bodyParams.toString()
+        });
+
+        const tokenData = await tokenResponse.json();
         const accessToken = tokenData.access_token;
 
-        // 2. Consulta a la lista de SharePoint
-        const graphUrl = `https://graph.microsoft.com/v1.0/sites/ugmchile.sharepoint.com:/sites/Calen:/lists/lista%20calen/items?expand=fields&$top=100`;
+        if (!accessToken) {
+            return res.status(500).json({ error: "No se pudo autenticar con Azure" });
+        }
 
-        const graphRes = await fetch(graphUrl, {
+        // 2. Consulta directa a la lista expandiendo todos los campos
+        const graphUrl = `https://graph.microsoft.com/v1.0/sites/${process.env.SHAREPOINT_SITE_ID}/lists/${process.env.SHAREPOINT_LIST_ID}/items?expand=fields`;
+        
+        const graphResponse = await fetch(graphUrl, {
             method: 'GET',
-            headers: { 
-                'Authorization': `Bearer ${accessToken}`,
-                'Accept': 'application/json'
-            }
+            headers: { 'Authorization': `Bearer ${accessToken}` }
         });
 
-        if (!graphRes.ok) {
-            const errText = await graphRes.text();
-            throw new Error(`Microsoft Graph respondió: ${errText}`);
-        }
-        
-        const graphData = await graphRes.json();
-        const rawItems = graphData.value || [];
+        const graphData = await graphResponse.json();
+        const items = graphData.value || [];
 
-        // 3. Mapeo Quirúrgico de Datos y Ajuste de Horas
-        const eventosProcesados = rawItems.map(item => {
+        // 3. Mapeo clásico idéntico al original que sí leía tu HTML
+        const eventosProcesados = items.map(item => {
             const f = item.fields || {};
-            
-            // Mapeo flexible de ubicación
-            const salaReal = f["U_x002e_G_x002e_M_x0020_Sala"] || f["Sala"] || f["U_G_M_Sala"] || f["Location"] || f["Ubicacion"] || "Por definir";
-            
-            // Corregir desfase de hora: Extraemos la fecha cruda
-            const fechaCruda = f["EventDate"] || f["EventDateTime"] || f["StartDate"] || "";
-            let fechaFinal = fechaCruda;
-
-            if (fechaCruda) {
-                // Si la fecha viene de un calendario de SharePoint, suele venir en UTC. 
-                // Al restarle el desfase de Chile (UTC-4), las 00:00 del día siguiente vuelven a ser las 20:00 del día correcto.
-                const d = new Date(fechaCruda);
-                if (!isNaN(d.getTime())) {
-                    // Restamos el desfase manual para fijar las 20:00 horas exactas que tú pusiste
-                    d.setHours(d.getHours() - 4);
-                    fechaFinal = d.toISOString().replace("Z", "");
-                }
-            }
-
             return {
-                title: f.Title || f.Title0 || f.LinkTitle || "Evento sin título",
-                sala: salaReal,
-                fecha: fechaFinal
+                title: f.Title || f.title || "Evento sin título",
+                sala: f.Sala || f.sala || "Por definir",
+                fecha: f.Fecha || f.fecha || f.casillaTiempo || f.EventDate || ""
             };
         });
 
-        return res.status(200).json(eventosProcesados);
+        res.setHeader('Cache-Control', 'no-shadow, no-store, must-revalidate');
+        res.status(200).json(eventosProcesados);
 
     } catch (error) {
-        console.error("Fallo crítico backend:", error);
-        return res.status(500).json({ 
-            error: "Error interno del servidor backend", 
-            mensaje: error.message 
-        });
+        console.error("Error en API Cartelera:", error.message);
+        res.status(500).json({ error: "Error de conexión", detalle: error.message });
     }
-}
+};
