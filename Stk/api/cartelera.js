@@ -1,5 +1,5 @@
 module.exports = async (req, res) => {
-    // Cabeceras CORS obligatorias
+    // Cabeceras CORS de siempre
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
@@ -11,7 +11,7 @@ module.exports = async (req, res) => {
     }
 
     try {
-        // 1. Obtener Token de Acceso desde Azure Entra ID
+        // 1. Token con Azure
         const tokenUrl = `https://login.microsoftonline.com/${process.env.TENANT_ID}/oauth2/v2.0/token`;
         
         const bodyParams = new URLSearchParams();
@@ -30,10 +30,10 @@ module.exports = async (req, res) => {
         const accessToken = tokenData.access_token;
 
         if (!accessToken) {
-            return res.status(500).json({ error: "No se pudo autenticar con Azure" });
+            return res.status(500).json({ error: "Error de token" });
         }
 
-        // 2. Consulta directa a la lista expandiendo todos los campos de un viaje
+        // 2. Consulta limpia a SharePoint pidiendo el objeto fields completo en bruto
         const graphUrl = `https://graph.microsoft.com/v1.0/sites/${process.env.SHAREPOINT_SITE_ID}/lists/${process.env.SHAREPOINT_LIST_ID}/items?expand=fields`;
         
         const graphResponse = await fetch(graphUrl, {
@@ -44,32 +44,24 @@ module.exports = async (req, res) => {
         const graphData = await graphResponse.json();
         const items = graphData.value || [];
 
-        // 3. Mapeo ultra-flexible para heredar "Destinatario" sin errores
+        // 3. Mapeo simplificado: Mandamos el objeto "fields" completo en bruto hacia el HTML
+        // Así el HTML puede buscar la columna como quiera sin romper el servidor
         const eventosProcesados = items.map(item => {
-            const f = item.fields || {};
-            
-            // Atajamos cualquier variación de nombre de columna en SharePoint
-            let valorDestinatario = f.Destinatario || f.destinatario || f.Destinatarios || f.destinatarios || null;
-            
-            // Si SharePoint lo maneja como un objeto Choice de Microsoft Graph, extraemos el texto de adentro
-            if (valorDestinatario && typeof valorDestinatario === 'object') {
-                valorDestinatario = valorDestinatario.Value || valorDestinatario.value || JSON.stringify(valorDestinatario);
-            }
-
             return {
-                title: f.Title || f.title || "Evento sin título",
-                sala: f.Sala || f.sala || "Por definir",
-                casillaTiempo: f.Fecha || f.fecha || f.casillaTiempo || f.EventDate || null,
-                destinatario: valorDestinatario ? String(valorDestinatario).trim() : null
+                title: item.fields ? (item.fields.Title || item.fields.title || "Evento sin título") : "Evento sin título",
+                sala: item.fields ? (item.fields.Sala || item.fields.sala || "Por definir") : "Por definir",
+                casillaTiempo: item.fields ? (item.fields.Fecha || item.fields.fecha || item.fields.EventDate || null) : null,
+                
+                // 🚀 AQUÍ ESTÁ EL TRUCO: Mandamos todo el contenedor fields para inspeccionarlo en el navegador
+                rawFields: item.fields || {}
             };
         });
 
-        // Forzar respuesta fresca sin caché vieja
         res.setHeader('Cache-Control', 'no-shadow, no-store, must-revalidate');
         res.status(200).json(eventosProcesados);
 
     } catch (error) {
-        console.error("Error en API Cartelera:", error.message);
-        res.status(500).json({ error: "Error de comunicación", detalle: error.message });
+        console.error(error);
+        res.status(500).json({ error: "Error de conexión" });
     }
 };
