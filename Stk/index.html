@@ -230,15 +230,12 @@
         setInterval(updateClock, 1000);
         updateClock();
 
-        // 🧠 EXTRACTOR ULTRA-BLINDADO PARA COLUMNAS TIPO "ELECCIÓN" (CHOICE)
+        // 🧠 DESTRIPADOR AUTOMÁTICO DE COLUMNAS CHOICE DE SHAREPOINT
         function NormalizarValorSharePoint(valor) {
             if (!valor) return '';
-            
-            // Si viene como Objeto Directo (ej: { Value: "Escuelas" })
             if (typeof valor === 'object') {
                 if (valor.Value) return String(valor.Value);
                 if (valor.value) return String(valor.value);
-                // Si es un Array/Lista de opciones (por si tuviera selección múltiple activa)
                 if (Array.isArray(valor) && valor.length > 0) {
                     let primerElemento = valor[0];
                     if (typeof primerElemento === 'object') {
@@ -250,24 +247,20 @@
             return String(valor);
         }
 
-        // 🎨 ASIGNADOR DE COLORES SEGÚN EL TEXTO NORMALIZADO
         function obtenerColorDestinatario(valorRaw) {
             const textoLimpio = NormalizarValorSharePoint(valorRaw).toLowerCase().trim();
-            
-            if (!textoLimpio) return '#00a896'; // Celeste Corporativo base por defecto
+            if (!textoLimpio) return '#00a896'; // Si el campo no viene o está vacío, celeste corporativo original
             
             if (textoLimpio.includes('comunidad')) {
-                return '#00a896'; // Turquesa / Celeste Vivo -> Comunidad UGM
+                return '#00a896'; // Turquesa / Celeste Corporativo UGM
             } else if (textoLimpio.includes('administrativo')) {
-                return '#6f42c1'; // Morado elegante -> Administrativos
+                return '#6f42c1'; // Morado elegante
             } else if (textoLimpio.includes('escuela')) {
-                return '#198754'; // Verde institucional -> Escuelas
+                return '#198754'; // Verde esmeralda
             }
-            
             return '#00a896'; 
         }
 
-        // 🏷️ FORMATEADOR DE TEXTO PARA MOSTRAR DENTRO DEL BOTÓN
         function obtenerTextoDestinatario(valorRaw) {
             const textoFinal = NormalizarValorSharePoint(valorRaw).trim();
             return textoFinal ? textoFinal.toUpperCase() : 'TODO PÚBLICO';
@@ -306,6 +299,10 @@
             }
         }
 
+        function MathClonSiguiente() {
+             siguientePantalla();
+        }
+
         function siguientePantalla() {
             const container = document.getElementById('events-container');
             container.classList.remove('fade-in'); 
@@ -330,7 +327,7 @@
                 if (!eventosRaw || eventosRaw.length === 0 || eventosRaw.error) {
                     container.innerHTML = '<div class="no-events">No hay eventos registrados en SharePoint</div>';
                     container.classList.add('fade-in');
-                    rotationTimeout = setTimeout(siguientePantalla, 10000);
+                    rotationTimeout = setTimeout(MathClonSiguiente, 10000);
                     return;
                 }
 
@@ -370,7 +367,6 @@
                                 }
                             }
 
-                            // Captura flexible buscando la propiedad Destinatario sin romper el ciclo
                             listaProcesada.push({
                                 title: ev.title || "Evento sin título",
                                 sala: ev.sala || "Por definir",
@@ -423,7 +419,7 @@
                     container.innerHTML = '<div class="no-events">No hay más eventos programados</div>';
                     container.classList.add('fade-in');
                     modoVistaSemanas = !modoVistaSemanas;
-                    rotationTimeout = setTimeout(siguientePantalla, 8000);
+                    rotationTimeout = setTimeout(MathClonSiguiente, 8000);
                     return;
                 }
 
@@ -480,7 +476,7 @@
                 console.error(error);
                 container.innerHTML = '<div class="no-events">⚠️ Error de conexión</div>';
                 container.classList.add('fade-in');
-                rotationTimeout = setTimeout(siguientePantalla, 10000);
+                rotationTimeout = setTimeout(MathClonSiguiente, 10000);
             }
         }
 
