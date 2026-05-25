@@ -1,5 +1,5 @@
 module.exports = async (req, res) => {
-    // 1. Cabeceras CORS limpias
+    // 1. Cabeceras CORS obligatorias para la tele
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
@@ -11,7 +11,7 @@ module.exports = async (req, res) => {
     }
 
     try {
-        // 2. Rescatar Token de Microsoft por HTTP Puro usando variables de entorno
+        // 2. Rescatar Token de Microsoft por HTTP Puro
         const tokenUrl = `https://login.microsoftonline.com/${process.env.TENANT_ID}/oauth2/v2.0/token`;
         
         const bodyParams = new URLSearchParams();
@@ -30,11 +30,11 @@ module.exports = async (req, res) => {
         const accessToken = tokenData.access_token;
 
         if (!accessToken) {
-            return res.status(500).json({ error: "No se obtuvo token de Azure" });
+            return res.status(500).json({ error: "No se pudo obtener el Access Token de Azure" });
         }
 
-        // 3. Pegarle a la lista de SharePoint pidiendo expandir todos los campos ('fields')
-        const graphUrl = `https://graph.microsoft.com/v1.0/sites/${process.env.SHAREPOINT_SITE_ID}/lists/${process.env.SHAREPOINT_LIST_ID}/items?expand=fields($select=Title,title,Sala,sala,Fecha,casillaTiempo,EventDate,Destinatario,destinatario)`;
+        // 3. 🚀 EL CAMBIO CLAVE: Traemos todos los 'fields' sin filtros pesados que bloqueen la API
+        const graphUrl = `https://graph.microsoft.com/v1.0/sites/${process.env.SHAREPOINT_SITE_ID}/lists/${process.env.SHAREPOINT_LIST_ID}/items?expand=fields`;
         
         const graphResponse = await fetch(graphUrl, {
             method: 'GET',
@@ -42,28 +42,32 @@ module.exports = async (req, res) => {
         });
 
         const graphData = await graphResponse.json();
-        
-        // Si no viene la propiedad value, dejamos un arreglo vacío de respaldo
         const items = graphData.value || [];
 
-        // 4. Mapear de forma ultra-flexible para tolerar cualquier minúscula/mayúscula de SharePoint
+        // 4. Mapeo ultra-flexible: revisa mayúsculas/minúsculas y extrae el texto si es Choice (objeto)
         const eventosProcesados = items.map(item => {
             const f = item.fields || {};
             
+            // Si Destinatario viene como objeto de SharePoint Choice, extraemos el .Value interno
+            let rawDestinatario = f.Destinatario || f.destinatario || null;
+            if (rawDestinatario && typeof rawDestinatario === 'object') {
+                rawDestinatario = rawDestinatario.Value || rawDestinatario.value || null;
+            }
+
             return {
                 title: f.Title || f.title || "Evento sin título",
                 sala: f.Sala || f.sala || "Por definir",
-                casillaTiempo: f.Fecha || f.casillaTiempo || f.EventDate || null,
-                Destinatario: f.Destinatario || f.destinatario || null
+                casillaTiempo: f.Fecha || f.fecha || f.casillaTiempo || f.EventDate || null,
+                Destinatario: rawDestinatario
             };
         });
 
-        // 5. Entregar la data real y limpia directo al index.html
+        // 5. Entregar la data fresca al frontend
         res.setHeader('Cache-Control', 'no-shadow, no-store, must-revalidate');
         res.status(200).json(eventosProcesados);
 
     } catch (error) {
-        console.error("Error en la ejecución de la API:", error.message);
-        res.status(500).json({ error: "Error al conectar con SharePoint", detalle: error.message });
+        console.error("Error en ejecución de API:", error.message);
+        res.status(500).json({ error: "Error de conexión con SharePoint", detalle: error.message });
     }
 };
