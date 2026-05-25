@@ -219,22 +219,17 @@
             const wrapperHeight = wrapper.clientHeight;
             const containerHeight = container.clientHeight;
 
-            // REGLA CLAVE: Si todo cabe perfecto (como tus 4 eventos al 60% de zoom), se queda quieto
             if (containerHeight <= wrapperHeight) {
-                // Cuenta 10 segundos exactos en pantalla y gatilla la transición de cambio
                 rotationTimeout = setTimeout(() => {
                     siguientePantalla();
                 }, 10000);
             } else {
-                // Si el contenido desborda la pantalla, corre el scroll fluido hacia abajo
                 let currentTop = 0;
                 scrollInterval = setInterval(() => {
                     if (container.clientHeight > wrapper.clientHeight) {
                         currentTop -= 1;
                         if (Math.abs(currentTop) >= (container.clientHeight - wrapper.clientHeight + 60)) {
                             clearInterval(scrollInterval);
-                            
-                            // Espera 3 segundos abajo leyendo el final de la lista y cambia
                             rotationTimeout = setTimeout(() => {
                                 siguientePantalla();
                             }, 3000);
@@ -246,13 +241,12 @@
             }
         }
 
-        // CEREBRO CENTRAL DE ROTACIÓN: Hace el switch de pestañas de forma externa y limpia
         function siguientePantalla() {
             const container = document.getElementById('events-container');
-            container.classList.remove('fade-in'); // Desvanecimiento (Fade Out)
+            container.classList.remove('fade-in'); 
             
             setTimeout(() => {
-                modoVistaSemanas = !modoVistaSemanas; // Cambia la pestaña de forma segura
+                modoVistaSemanas = !modoVistaSemanas; 
                 cargarCartelera();
             }, 600);
         }
@@ -316,7 +310,28 @@
 
                 if (modoVistaSemanas) {
                     tituloSeccion.innerText = "PRÓXIMOS EVENTOS";
-                    muestraFinal = listaProcesada.filter(ev => !ev.esHoy && ev.fechaStr > hoyChileString);
+
+                    // 🛠️ MOTOR DE VENTANA INTELIGENTE PARA LA SEMANA CONSECUTIVA
+                    const fechaActual = new Date();
+                    const diaSemana = fechaActual.getDay(); // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
+                    
+                    // Calculamos cuántos días faltan para el próximo domingo (cierre de la semana actual)
+                    let diasHastaFinDeSemana = 7 - diaSemana;
+                    if (diaSemana === 0) diasHastaFinDeSemana = 0; // Si ya es domingo
+
+                    // Si estamos a viernes (5), sábado (6) o domingo (0), ampliamos la ventana 7 días más 
+                    // para capturar el lunes de la semana entrante y que la pantalla no quede en blanco.
+                    if (diaSemana === 5 || diaSemana === 6 || diaSemana === 0) {
+                        diasHastaFinDeSemana += 7;
+                    }
+
+                    // Creamos la fecha límite en formato texto YYYY-MM-DD
+                    const fechaLimiteObj = new Date();
+                    fechaLimiteObj.setDate(fechaActual.getDate() + diasHastaFinDeSemana);
+                    const limiteString = fechaLimiteObj.toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
+
+                    // Filtramos: eventos que sean mayores que HOY pero menores o iguales al límite dinámico
+                    muestraFinal = listaProcesada.filter(ev => !ev.esHoy && ev.fechaStr > hoyChileString && ev.fechaStr <= limiteString);
                 } else {
                     tituloSeccion.innerText = "EVENTOS DE HOY";
                     muestraFinal = listaProcesada.filter(ev => ev.esHoy && (ev.hora === "Todo el día" || ev.hora >= horaChileString));
@@ -324,12 +339,24 @@
 
                 if (muestraFinal.length === 0 && !modoVistaSemanas) {
                     tituloSeccion.innerText = "PRÓXIMOS EVENTOS";
-                    muestraFinal = listaProcesada.filter(ev => !ev.esHoy && ev.fechaStr > hoyChileString);
+                    // Fallback si hoy no hay nada: muestra la misma ventana inteligente
+                    const fechaActual = new Date();
+                    const diaSemana = fechaActual.getDay();
+                    let diasHastaFinDeSemana = 7 - diaSemana;
+                    if (diaSemana === 0) diasHastaFinDeSemana = 0;
+                    if (diaSemana === 5 || diaSemana === 6 || diaSemana === 0) diasHastaFinDeSemana += 7;
+
+                    const fechaLimiteObj = new Date();
+                    fechaLimiteObj.setDate(fechaActual.getDate() + diasHastaFinDeSemana);
+                    const limiteString = fechaLimiteObj.toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
+
+                    muestraFinal = listaProcesada.filter(ev => !ev.esHoy && ev.fechaStr > hoyChileString && ev.fechaStr <= limiteString);
                 }
 
                 if (muestraFinal.length === 0) {
                     container.innerHTML = '<div class="no-events">No hay más eventos programados</div>';
                     container.classList.add('fade-in');
+                    modoVistaSemanas = !modoVistaSemanas;
                     rotationTimeout = setTimeout(siguientePantalla, 8000);
                     return;
                 }
@@ -368,10 +395,7 @@
                     container.appendChild(card);
                 });
 
-                // Encendemos el contenido elegantemente
                 container.classList.add('fade-in');
-                
-                // Disparamos el controlador de scroll/fijeza
                 setTimeout(iniciarManejoPantalla, 400);
 
             } catch (error) {
