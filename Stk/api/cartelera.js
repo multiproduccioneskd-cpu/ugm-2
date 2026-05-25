@@ -1,5 +1,5 @@
 module.exports = async (req, res) => {
-    // 1. Cabeceras CORS obligatorias para la tele de la U
+    // 1. Cabeceras CORS limpias
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
@@ -11,7 +11,7 @@ module.exports = async (req, res) => {
     }
 
     try {
-        // 2. Pedir el Token a Microsoft usando fetch nativo (sin librerías externas)
+        // 2. Rescatar Token de Microsoft por HTTP Puro usando variables de entorno
         const tokenUrl = `https://login.microsoftonline.com/${process.env.TENANT_ID}/oauth2/v2.0/token`;
         
         const bodyParams = new URLSearchParams();
@@ -30,11 +30,11 @@ module.exports = async (req, res) => {
         const accessToken = tokenData.access_token;
 
         if (!accessToken) {
-            throw new Error("No se pudo obtener el token de acceso de Microsoft");
+            return res.status(500).json({ error: "No se obtuvo token de Azure" });
         }
 
-        // 3. Consultar la lista de SharePoint de forma directa
-        const graphUrl = `https://graph.microsoft.com/v1.0/sites/${process.env.SHAREPOINT_SITE_ID}/lists/${process.env.SHAREPOINT_LIST_ID}/items?expand=fields`;
+        // 3. Pegarle a la lista de SharePoint pidiendo expandir todos los campos ('fields')
+        const graphUrl = `https://graph.microsoft.com/v1.0/sites/${process.env.SHAREPOINT_SITE_ID}/lists/${process.env.SHAREPOINT_LIST_ID}/items?expand=fields($select=Title,title,Sala,sala,Fecha,casillaTiempo,EventDate,Destinatario,destinatario)`;
         
         const graphResponse = await fetch(graphUrl, {
             method: 'GET',
@@ -42,26 +42,28 @@ module.exports = async (req, res) => {
         });
 
         const graphData = await graphResponse.json();
+        
+        // Si no viene la propiedad value, dejamos un arreglo vacío de respaldo
         const items = graphData.value || [];
 
-        // 4. Mapear los datos reales de SharePoint hacia tu index.html
+        // 4. Mapear de forma ultra-flexible para tolerar cualquier minúscula/mayúscula de SharePoint
         const eventosProcesados = items.map(item => {
+            const f = item.fields || {};
+            
             return {
-                title: item.fields.Title || item.fields.title || "Evento sin título",
-                sala: item.fields.Sala || item.fields.sala || "Por definir",
-                casillaTiempo: item.fields.Fecha || item.fields.casillaTiempo || item.fields.EventDate || null,
-                
-                // Rescatamos la columna tipo Elección de SharePoint de forma segura
-                Destinatario: item.fields.Destinatario || item.fields.destinatario || null
+                title: f.Title || f.title || "Evento sin título",
+                sala: f.Sala || f.sala || "Por definir",
+                casillaTiempo: f.Fecha || f.casillaTiempo || f.EventDate || null,
+                Destinatario: f.Destinatario || f.destinatario || null
             };
         });
 
-        // Desactivar caché para actualizaciones en tiempo real en la tele
+        // 5. Entregar la data real y limpia directo al index.html
         res.setHeader('Cache-Control', 'no-shadow, no-store, must-revalidate');
         res.status(200).json(eventosProcesados);
 
     } catch (error) {
-        console.error("Error en la API de la cartelera:", error.message);
-        res.status(500).json({ error: "Error de conexión con SharePoint", detalle: error.message });
+        console.error("Error en la ejecución de la API:", error.message);
+        res.status(500).json({ error: "Error al conectar con SharePoint", detalle: error.message });
     }
 };
