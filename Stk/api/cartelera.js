@@ -11,12 +11,12 @@ module.exports = async (req, res) => {
     }
 
     try {
-        // 1. Obtener Token de Acceso desde Azure Entra ID
+        // 1. Obtener Token de Acceso desde Azure Entra ID usando tus variables de entorno
         const tokenUrl = `https://login.microsoftonline.com/${process.env.TENANT_ID}/oauth2/v2.0/token`;
         
         const bodyParams = new URLSearchParams();
         bodyParams.append('client_id', process.env.CLIENT_ID);
-        bodyParams.append('scope', 'https://graph.microsoft.com/.default'); // Scope oficial de Graph API
+        bodyParams.append('scope', 'https://graph.microsoft.com/.default');
         bodyParams.append('client_secret', process.env.CLIENT_SECRET);
         bodyParams.append('grant_type', 'client_credentials');
 
@@ -30,10 +30,10 @@ module.exports = async (req, res) => {
         const accessToken = tokenData.access_token;
 
         if (!accessToken) {
-            return res.status(500).json({ error: "No se pudo obtener el Token desde Azure" });
+            return res.status(500).json({ error: "No se pudo obtener el token de Azure" });
         }
 
-        // 2. 🚀 LA URL OFICIAL DE GRAPH: Trae el contenedor fields limpio en formato JSON garantizado
+        // 2. Apuntar a la lista oficial expandiendo los 'fields' en bruto sin filtros ciegos
         const graphUrl = `https://graph.microsoft.com/v1.0/sites/${process.env.SHAREPOINT_SITE_ID}/lists/${process.env.SHAREPOINT_LIST_ID}/items?expand=fields`;
         
         const graphResponse = await fetch(graphUrl, {
@@ -44,7 +44,7 @@ module.exports = async (req, res) => {
         const graphData = await graphResponse.json();
         const items = graphData.value || [];
 
-        // 3. Mapeo clásico y tolerante que alimenta directo a tu index.html original
+        // 3. Mapeo ultra-limpio regresando a las llaves originales en minúscula
         const eventosProcesados = items.map(item => {
             const f = item.fields || {};
             return {
@@ -54,12 +54,12 @@ module.exports = async (req, res) => {
             };
         });
 
-        // Respuesta limpia sin caché vieja para actualización inmediata
+        // Forzar entrega fresca sin caché para que actualice al tiro en la tele
         res.setHeader('Cache-Control', 'no-shadow, no-store, must-revalidate');
         res.status(200).json(eventosProcesados);
 
     } catch (error) {
-        console.error("Error en la cascada de la API:", error.message);
-        res.status(500).json({ error: "Error de conexión con Microsoft Graph", detalle: error.message });
+        console.error("Error en ejecución de API:", error.message);
+        res.status(500).json({ error: "Error de conexión con SharePoint", detalle: error.message });
     }
 };
