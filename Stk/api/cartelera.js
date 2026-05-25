@@ -1,72 +1,116 @@
-module.exports = async (req, res) => {
-    // Cabeceras CORS obligatorias
-    res.setHeader('Access-Control-Allow-Credentials', true);
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
-
-    if (req.method === 'OPTIONS') {
-        res.status(200).end();
-        return;
-    }
-
-    try {
-        // 1. Obtener Token de Acceso desde Azure Entra ID
-        const tokenUrl = `https://login.microsoftonline.com/${process.env.TENANT_ID}/oauth2/v2.0/token`;
-        
-        const bodyParams = new URLSearchParams();
-        bodyParams.append('client_id', process.env.CLIENT_ID);
-        bodyParams.append('scope', 'https://graph.microsoft.com/.default');
-        bodyParams.append('client_secret', process.env.CLIENT_SECRET);
-        bodyParams.append('grant_type', 'client_credentials');
-
-        const tokenResponse = await fetch(tokenUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: bodyParams.toString()
-        });
-
-        const tokenData = await tokenResponse.json();
-        const accessToken = tokenData.access_token;
-
-        if (!accessToken) {
-            return res.status(500).json({ error: "No se pudo autenticar con Azure" });
-        }
-
-        // 2. Consulta directa expandiendo todos los campos de SharePoint de un viaje
-        const graphUrl = `https://graph.microsoft.com/v1.0/sites/${process.env.SHAREPOINT_SITE_ID}/lists/${process.env.SHAREPOINT_LIST_ID}/items?expand=fields`;
-        
-        const graphResponse = await fetch(graphUrl, {
-            method: 'GET',
-            headers: { 'Authorization': `Bearer ${accessToken}` }
-        });
-
-        const graphData = await graphResponse.json();
-        const items = graphData.value || [];
-
-        // 3. Mapeo limpio tolerando mayúsculas, minúsculas y objetos tipo Choice
-        const eventosProcesados = items.map(item => {
-            const f = item.fields || {};
+async function cargarCartelera() {
+            const container = document.getElementById('events-container');
+            const tituloSeccion = document.getElementById('main-title');
             
-            let rawDestinatario = f.Destinatario || f.destinatario || null;
-            if (rawDestinatario && typeof rawDestinatario === 'object') {
-                rawDestinatario = rawDestinatario.Value || rawDestinatario.value || null;
+            try {
+                const response = await fetch(`https://ugm-2.vercel.app/api/cartelera?nocache=${Date.now()}`);
+                if (!response.ok) throw new Error('Error API');
+                
+                const eventosRaw = await response.json();
+                container.innerHTML = '';
+                
+                if (!eventosRaw || eventosRaw.length === 0 || eventosRaw.error) {
+                    container.innerHTML = '<div class="no-events">No hay eventos registrados en SharePoint</div>';
+                    return;
+                }
+
+                // Fecha y Hora de control en tiempo real de Chile
+                const hoyChileString = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' }); 
+                const horaChileString = new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Santiago' });
+
+                // Procesamos aplicando la guillotina sobre la columna "Inicio"
+                const listaProcesada = eventosRaw.map(ev => {
+                    let fechaTexto = "9999-12-31";
+                    let horaTexto = "00:00";
+                    let esHoy = false;
+
+                    if (ev.casillaTiempo && typeof ev.casillaTiempo === 'string') {
+                        const partes = ev.casillaTiempo.split('T');
+                        if (partes[0] && partes[1]) {
+                            fechaTexto = partes[0]; 
+                            esHoy = (fechaTexto === hoyChileString);
+                            
+                            const subPartesHora = partes[1].split(':');
+                            let horaOriginal = parseInt(subPartesHora[0], 10);
+                            let minutosOriginales = subPartesHora[1] || "00";
+
+                            if (!isNaN(horaOriginal)) {
+                                // CORRECCIÓN AQUÍ: Quitamos 2 horas exactas al tiempo de SharePoint
+                                let horaAjustada = (horaOriginal - 2 + 24) % 24;
+                                horaTexto = `${String(horaAjustada).padStart(2, '0')}:${minutosOriginales.substring(0,2)}`;
+                            }
+                        }
+                    }
+
+                    return {
+                        title: ev.title,
+                        sala: ev.sala,
+                        hora: horaTexto,
+                        fechaStr: fechaTexto,
+                        esHoy: esHoy
+                    };
+                });
+
+                let muestraFinal = [];
+
+                if (modoVistaSemanas) {
+                    tituloSeccion.innerText = "PRÓXIMOS EVENTOS";
+                    muestraFinal = listaProcesada.filter(ev => !ev.esHoy && ev.fechaStr > hoyChileString);
+                } else {
+                    tituloSeccion.innerText = "EVENTOS DE HOY";
+                    // Filtra eventos de hoy que aún no terminen/pasen de la hora actual
+                    muestraFinal = listaProcesada.filter(ev => ev.esHoy && ev.hora >= horaChileString);
+                }
+
+                if (muestraFinal.length === 0 && !modoVistaSemanas) {
+                    tituloSeccion.innerText = "PRÓXIMOS EVENTOS";
+                    muestraFinal = listaProcesada.filter(ev => !ev.esHoy && ev.fechaStr > hoyChileString);
+                }
+
+                if (muestraFinal.length === 0) {
+                    container.innerHTML = '<div class="no-events">No hay más eventos programados</div>';
+                    return;
+                }
+
+                muestraFinal.sort((a, b) => `${a.fechaStr}T${a.hora}`.localeCompare(`${b.fechaStr}T${b.hora}`));
+
+                container.innerHTML = '';
+                
+                muestraFinal.forEach(ev => {
+                    let etiquetaDia = "Hoy";
+                    
+                    if (!ev.esHoy && ev.fechaStr !== "9999-12-31") {
+                        try {
+                            const [aaaa, mes, dd] = ev.fechaStr.split('-');
+                            const d = new Date(parseInt(aaaa,10), parseInt(mes,10) - 1, parseInt(dd,10), 12, 0, 0);
+                            const nombreDia = d.toLocaleDateString('es-CL', { weekday: 'short' }).replace('.', '');
+                            const numDia = d.getDate();
+                            etiquetaDia = `${nombreDia.charAt(0).toUpperCase() + nombreDia.slice(1)} ${numDia}`;
+                        } catch (e) {
+                            etiquetaDia = "Próximo";
+                        }
+                    }
+
+                    const card = document.createElement('div');
+                    card.className = 'event-card';
+                    card.innerHTML = `
+                        <div class="event-info">
+                            <div class="event-title">${ev.title}</div>
+                            <div class="event-room">${ev.sala}</div>
+                        </div>
+                        <div class="event-time">
+                            <div class="event-day-label">${etiquetaDia}</div>
+                            <div>${ev.hora}</div>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+
+                modoVistaSemanas = !modoVistaSemanas;
+                setTimeout(iniciarScroll, 1000);
+
+            } catch (error) {
+                console.error(error);
+                container.innerHTML = '<div class="no-events">⚠️ Error de conexión</div>';
             }
-
-            return {
-                title: f.Title || f.title || "Evento sin título",
-                sala: f.Sala || f.sala || "Por definir",
-                casillaTiempo: f.Fecha || f.fecha || f.casillaTiempo || f.EventDate || null,
-                Destinatario: rawDestinatario
-            };
-        });
-
-        // Respuesta limpia sin caché
-        res.setHeader('Cache-Control', 'no-shadow, no-store, must-revalidate');
-        res.status(200).json(eventosProcesados);
-
-    } catch (error) {
-        console.error("Error en API Cartelera:", error.message);
-        res.status(500).json({ error: "Error de comunicación", detalle: error.message });
-    }
-};
+        }
