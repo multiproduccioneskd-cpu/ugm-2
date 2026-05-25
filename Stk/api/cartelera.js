@@ -33,9 +33,8 @@ module.exports = async (req, res) => {
             return res.status(500).json({ error: "Error de autenticación con Azure" });
         }
 
-        // 2. 🚀 LA URL CORECTA: Le pegamos a la API de SharePoint solicitando las "columns" y "renderListData" 
-        // para que devuelva los valores de las celdas directamente en el primer nivel del JSON
-        const graphUrl = `https://graph.microsoft.com/v1.0/sites/${process.env.SHAREPOINT_SITE_ID}/lists/${process.env.SHAREPOINT_LIST_ID}/items?expand=fields($select=Title,Sala,Fecha,EventDate)`;
+        // 2. 🚀 URL EN BRUTO CORREGIDA: Traemos absolutamente todos los "fields" sin filtros que rompan la respuesta
+        const graphUrl = `https://graph.microsoft.com/v1.0/sites/${process.env.SHAREPOINT_SITE_ID}/lists/${process.env.SHAREPOINT_LIST_ID}/items?expand=fields`;
         
         const graphResponse = await fetch(graphUrl, {
             method: 'GET',
@@ -45,13 +44,13 @@ module.exports = async (req, res) => {
         const graphData = await graphResponse.json();
         const items = graphData.value || [];
 
-        // 3. Mapeo definitivo: Si SharePoint cambia las mayúsculas/minúsculas, las atajamos todas
+        // 3. Mapeo ultra-tolerante para que el JSON arme las llaves fijas que busca tu index.html
         const eventosProcesados = items.map(item => {
             const f = item.fields || {};
             return {
-                title: f.Title || f.title || item.title || "Evento sin título",
-                sala: f.Sala || f.sala || item.sala || "Por definir",
-                fecha: f.Fecha || f.fecha || f.EventDate || item.fecha || ""
+                title: f.Title || f.title || "Evento sin título",
+                sala: f.Sala || f.sala || "Por definir",
+                fecha: f.Fecha || f.fecha || f.casillaTiempo || f.EventDate || ""
             };
         });
 
