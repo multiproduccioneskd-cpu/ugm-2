@@ -130,17 +130,37 @@
             color: #ffffff;
             line-height: 1.2;
         }
+        
+        /* Contenedor para que las etiquetas de ubicación y destino queden una al lado de la otra */
+        .event-badges {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        
         .event-room {
-            font-size: 1.8rem;
+            font-size: 1.6rem;
             color: #000000;
             font-weight: bold;
-            background-color: #ffa500;
-            padding: 8px 24px;
+            background-color: #ffa500; /* Naranja original */
+            padding: 6px 20px;
             border-radius: 8px;
-            align-self: flex-start;
             text-transform: uppercase;
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
+        
+        /* 🏷️ NUEVO ESTILO: CAJITA DE DESTINATARIO */
+        .event-destinatario {
+            font-size: 1.6rem;
+            color: #ffffff;
+            font-weight: bold;
+            background-color: #00a896; /* Color turquesa/celeste oscuro que contrasta hermoso */
+            padding: 6px 20px;
+            border-radius: 8px;
+            text-transform: uppercase;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
         .event-time {
             font-size: 3.2rem;
             font-weight: 800;
@@ -165,10 +185,9 @@
             letter-spacing: 1px;
         }
         
-        /* 🚨 NUEVO ESTILO: CAJITA "EN CURSO" */
         .badge-en-curso {
-            color: #ff4a4a !important; /* Rojo llamativo */
-            animation: pulse 2s infinite; /* Efecto sutil de parpadeo */
+            color: #ff4a4a !important; 
+            animation: pulse 2s infinite; 
         }
         
         @keyframes pulse {
@@ -216,11 +235,15 @@
 
         function updateClock() {
             const ahora = new Date();
-            document.getElementById('current-time').innerText = ahora.toLocaleTimeString('es-CL', { hour12: false });
+            document.getElementById('current-time').innerText = ScientificAudioTimeString(ahora);
             
             const opciones = { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Santiago' };
             let fechaTexto = ahora.toLocaleDateString('es-CL', opciones);
             document.getElementById('current-date').innerText = fechaTexto.charAt(0).toUpperCase() + fechaTexto.slice(1);
+        }
+        
+        function ScientificAudioTimeString(date) {
+            return date.toLocaleTimeString('es-CL', { hour12: false });
         }
         setInterval(updateClock, 1000);
         updateClock();
@@ -286,7 +309,6 @@
                     return;
                 }
 
-                // Obtener fecha y hora de referencia exacta de Chile
                 const ahoraChile = new Date(new Date().toLocaleString("en-US", {timeZone: "America/Santiago"}));
                 const hoyChileString = ahoraChile.toLocaleDateString('sv-SE'); 
 
@@ -310,19 +332,14 @@
                             const esHoy = (fechaTexto === hoyChileString);
                             let etiquetaEstado = "Hoy";
 
-                            // Lógica de filtrado de 30 minutos e indicador "En curso" para eventos de Hoy
                             if (esHoy && !esTodoElDia) {
                                 const horaEventoObj = new Date(dateObjeto.toLocaleString("en-US", {timeZone: "America/Santiago"}));
-                                
-                                // Diferencia en minutos (Tiempo actual - Tiempo del evento)
                                 const diferenciaMinutos = (ahoraChile - horaEventoObj) / 60000;
 
-                                // 1. Si pasaron más de 30 minutos del inicio, se ignora y se elimina de la lista
                                 if (diferenciaMinutos > 30) {
                                     return; 
                                 }
                                 
-                                // 2. Si ya empezó pero lleva 30 minutos o menos, se marca como "En curso"
                                 if (diferenciaMinutos >= 0 && diferenciaMinutos <= 30) {
                                     etiquetaEstado = "En curso";
                                 }
@@ -331,6 +348,7 @@
                             listaProcesada.push({
                                 title: ev.title || "Evento sin título",
                                 sala: ev.sala || "Por definir",
+                                destino: ev.destino || "Todo público", // 🚀 CAPTURA DE LA NUEVA COLUMNA DE SHAREPOINT
                                 hora: horaTexto,
                                 fechaStr: fechaTexto,
                                 esHoy: esHoy,
@@ -357,7 +375,6 @@
                     muestraFinal = listaProcesada.filter(ev => !ev.esHoy && ev.fechaStr > hoyChileString && ev.fechaStr <= limiteString);
                 } else {
                     tituloSeccion.innerText = "EVENTOS DE HOY";
-                    // Muestra los de hoy que sobrevivieron al filtro de los 30 minutos pasados
                     muestraFinal = listaProcesada.filter(ev => ev.esHoy);
                 }
 
@@ -392,7 +409,6 @@
                     let etiquetaDia = ev.etiquetaEstado;
                     let claseExtra = "";
 
-                    // Si está en curso, agregamos la clase CSS de animación dinámica
                     if (etiquetaDia === "En curso") {
                         claseExtra = "badge-en-curso";
                     }
@@ -411,10 +427,15 @@
 
                     const card = document.createElement('div');
                     card.className = 'event-card';
+                    
+                    // 🚀 RENDERIZADO: Inyectamos la estructura flex con el nuevo cuadrado al lado de la sala
                     card.innerHTML = `
                         <div class="event-info">
                             <div class="event-title">${ev.title}</div>
-                            <div class="event-room">${ev.sala}</div>
+                            <div class="event-badges">
+                                <div class="event-room">${ev.sala}</div>
+                                <div class="event-type event-destinatario">${ev.destino}</div>
+                            </div>
                         </div>
                         <div class="event-time">
                             <div class="event-day-label ${claseExtra}">${etiquetaDia}</div>
