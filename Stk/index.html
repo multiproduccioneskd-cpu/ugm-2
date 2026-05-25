@@ -5,191 +5,37 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cartelera de Eventos UGM</title>
     <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #0b192f;
-            color: #ffffff;
-            overflow: hidden;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-        header {
-            background-color: #002060;
-            padding: 20px 0px; 
-            display: flex;
-            align-items: center;
-            border-bottom: 5px solid #0056b3;
-            width: 100%;
-            height: 110px; 
-            position: relative;
-        }
-        header h1 {
-            position: absolute;
-            left: 40px; 
-            top: 50%;
-            transform: translateY(-50%);
-            font-size: 2.8rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            font-weight: 800;
-            white-space: nowrap;
-            z-index: 2;
-        }
-        .logo-centro-wrapper {
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1; 
-        }
-        .logo-centro {
-            height: 65px;
-            width: auto;
-        }
-        #right-header {
-            position: absolute;
-            right: 40px;
-            top: 50%;
-            transform: translateY(-50%);
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            gap: 2px;
-            z-index: 2;
-        }
-        #current-date {
-            font-size: 1.6rem;
-            color: #ffc000;
-            font-weight: bold;
-            text-transform: capitalize;
-        }
-        #current-time {
-            font-size: 2.5rem;
-            font-weight: bold;
-            color: #ffffff;
-            line-height: 1;
-        }
-        main {
-            flex: 1;
-            padding: 30px;
-            position: relative;
-            overflow: hidden;
-        }
-        #scroll-wrapper {
-            height: 100%;
-            overflow-y: hidden;
-            position: relative;
-        }
-        .container {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            opacity: 0;
-            transition: transform 0.3s linear, opacity 0.6s ease-in-out;
-        }
-        .container.fade-in {
-            opacity: 1;
-        }
-        .event-card {
-            background-color: #172a45;
-            border-left: 12px solid #0056b3;
-            border-radius: 12px;
-            padding: 30px 45px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.4);
-        }
-        .event-info {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            flex: 1;
-        }
-        .event-title {
-            font-size: 2.6rem;
-            font-weight: bold;
-            color: #ffffff;
-            line-height: 1.2;
-        }
-        .event-badges {
-            display: flex;
-            gap: 15px;
-            align-items: center;
-        }
-        .event-room {
-            font-size: 1.6rem;
-            color: #000000;
-            font-weight: bold;
-            background-color: #ffa500; 
-            padding: 6px 20px;
-            border-radius: 8px;
-            text-transform: uppercase;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        }
-        .event-destinatario {
-            font-size: 1.6rem;
-            color: #ffffff;
-            font-weight: bold;
-            padding: 6px 20px;
-            border-radius: 8px;
-            text-transform: uppercase;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        }
-        .event-time {
-            font-size: 3.2rem;
-            font-weight: 800;
-            color: #38b6ff;
-            background-color: #0b192f;
-            padding: 15px 35px;
-            border-radius: 10px;
-            border: 3px solid #0056b3;
-            white-space: nowrap;
-            text-align: center;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            min-width: 210px;
-        }
-        .event-day-label {
-            font-size: 1.2rem;
-            color: #8892b0;
-            text-transform: uppercase;
-            font-weight: bold;
-            margin-bottom: 4px;
-            letter-spacing: 1px;
-        }
-        .no-events {
-            font-size: 2.8rem;
-            text-align: center;
-            color: #8892b0;
-            margin-top: 15vh;
-            width: 100%;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0b192f; color: #ffffff; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+        header { background-color: #002060; padding: 20px 0px; display: flex; align-items: center; border-bottom: 5px solid #0056b3; width: 100%; height: 110px; position: relative; }
+        header h1 { position: absolute; left: 40px; top: 50%; transform: translateY(-50%); font-size: 2.8rem; text-transform: uppercase; letter-spacing: 1px; font-weight: 800; white-space: nowrap; z-index: 2; }
+        .logo-centro-wrapper { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; align-items: center; justify-content: center; z-index: 1; }
+        .logo-centro { height: 65px; width: auto; }
+        #right-header { position: absolute; right: 40px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; align-items: flex-end; gap: 2px; z-index: 2; }
+        #current-date { font-size: 1.6rem; color: #ffc000; font-weight: bold; text-transform: capitalize; }
+        #current-time { font-size: 2.5rem; font-weight: bold; color: #ffffff; line-height: 1; }
+        main { flex: 1; padding: 30px; position: relative; overflow: hidden; }
+        #scroll-wrapper { height: 100%; overflow-y: hidden; position: relative; }
+        .container { display: flex; flex-direction: column; gap: 20px; position: absolute; top: 0; left: 0; width: 100%; opacity: 0; transition: transform 0.3s linear, opacity 0.6s ease-in-out; }
+        .container.fade-in { opacity: 1; }
+        .event-card { background-color: #172a45; border-left: 12px solid #0056b3; border-radius: 12px; padding: 30px 45px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 10px 20px rgba(0,0,0,0.4); }
+        .event-info { display: flex; flex-direction: column; gap: 12px; flex: 1; }
+        .event-title { font-size: 2.6rem; font-weight: bold; color: #ffffff; line-height: 1.2; }
+        .event-badges { display: flex; gap: 15px; align-items: center; }
+        .event-room { font-size: 1.6rem; color: #000000; font-weight: bold; background-color: #ffa500; padding: 6px 20px; border-radius: 8px; text-transform: uppercase; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+        .event-destinatario { font-size: 1.6rem; color: #ffffff; font-weight: bold; padding: 6px 20px; border-radius: 8px; text-transform: uppercase; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+        .event-time { font-size: 3.2rem; font-weight: 800; color: #38b6ff; background-color: #0b192f; padding: 15px 35px; border-radius: 10px; border: 3px solid #0056b3; white-space: nowrap; text-align: center; display: flex; flex-direction: column; justify-content: center; min-width: 210px; }
+        .event-day-label { font-size: 1.2rem; color: #8892b0; text-transform: uppercase; font-weight: bold; margin-bottom: 4px; letter-spacing: 1px; }
+        .no-events { font-size: 2.8rem; text-align: center; color: #8892b0; margin-top: 15vh; width: 100%; }
     </style>
 </head>
 <body>
 
     <header>
         <h1 id="main-title">EVENTOS DE LA SEMANA</h1>
-        
         <div class="logo-centro-wrapper">
             <img id="logo-medio" src="logo-blanco-celeste.png" alt="Logo Central" class="logo-centro">
         </div>
-
         <div id="right-header">
             <div id="current-date">Cargando fecha...</div>
             <div id="current-time">00:00:00</div>
@@ -211,7 +57,6 @@
         function updateClock() {
             const ahora = new Date();
             document.getElementById('current-time').innerText = ahora.toLocaleTimeString('es-CL', { hour12: false });
-            
             const opciones = { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Santiago' };
             let fechaTexto = ahora.toLocaleDateString('es-CL', opciones);
             document.getElementById('current-date').innerText = fechaTexto.charAt(0).toUpperCase() + fechaTexto.slice(1);
@@ -219,35 +64,43 @@
         setInterval(updateClock, 1000);
         updateClock();
 
-        // Lógica de colores corporativos
-        function analizarDestinatario(titulo, destino) {
-            let texto = "";
-            if (destino) {
-                texto = String(destino).toLowerCase().trim();
-            }
+        // 🧠 DETECTOR INTELIGENTE MULTI-COLUMNA DE SHAREPOINT
+        function asignarColoresMapeados(titulo, camposCompletos) {
+            let textoColumna = "";
             
-            if (!texto) {
-                const tObj = String(titulo).toLowerCase();
-                if (tObj.includes('taller') || tObj.includes('integración') || tObj.includes('reunión') || tObj.includes('tricel')) {
-                    return { texto: 'ADMINISTRATIVOS', color: '#6f42c1' }; 
+            if (camposCompletos) {
+                // Buscamos todas las mañas con las que SharePoint pudo registrar la columna
+                let rawDestino = camposCompletos.Destinatario || 
+                                 camposCompletos.destinatario || 
+                                 camposCompletos.OData__Destinatario || 
+                                 camposCompletos.Destinatarios || 
+                                 camposCompletos.destinatarios || null;
+
+                if (rawDestino) {
+                    if (typeof rawDestino === 'object') {
+                        textoColumna = rawDestino.Value || rawDestino.value || "";
+                    } else {
+                        textoColumna = String(rawDestino);
+                    }
                 }
-                if (tObj.includes('escuela') || tObj.includes('charla') || tObj.includes('sesión')) {
-                    return { texto: 'ESCUELAS', color: '#198754' }; 
-                }
-                return { texto: 'COMUNIDAD UGM', color: '#00a896' }; 
             }
 
-            if (texto.includes('administrativo')) {
-                return { texto: 'ADMINISTRATIVOS', color: '#6f42c1' }; // Morado
-            }
-            if (texto.includes('escuela')) {
-                return { texto: 'ESCUELAS', color: '#198754' }; // Verde
-            }
-            if (texto.includes('comunidad')) {
-                return { texto: 'COMUNIDAD UGM', color: '#00a896' }; // Turquesa
-            }
+            let t = textoColumna.toLowerCase().trim();
 
-            return { texto: texto.toUpperCase(), color: '#00a896' };
+            // Si detecta el campo real en SharePoint, aplica los colores corporativos
+            if (t.includes('administrativo')) return { texto: 'ADMINISTRATIVOS', color: '#6f42c1' };
+            if (t.includes('escuela')) return { texto: 'ESCUELAS', color: '#198754' };
+            if (t.includes('comunidad')) return { texto: 'COMUNIDAD UGM', color: '#00a896' };
+
+            // SALVAVIDAS: Si la columna sigue vacía por culpa de SharePoint, deduce el color por el título
+            const tObj = String(titulo).toLowerCase();
+            if (tObj.includes('taller') || tObj.includes('integración') || tObj.includes('reunión') || tObj.includes('tricel')) {
+                return { texto: 'ADMINISTRATIVOS', color: '#6f42c1' }; 
+            }
+            if (tObj.includes('escuela') || tObj.includes('charla') || tObj.includes('sesión')) {
+                return { texto: 'ESCUELAS', color: '#198754' }; 
+            }
+            return { texto: 'COMUNIDAD UGM', color: '#00a896' }; 
         }
 
         function iniciarManejoPantalla() {
@@ -256,15 +109,10 @@
             
             const wrapper = document.getElementById('scroll-wrapper');
             const container = document.getElementById('events-container');
-            
             container.style.transform = `translateY(0px)`;
-            const wrapperHeight = wrapper.clientHeight;
-            const containerHeight = container.clientHeight;
 
-            if (containerHeight <= wrapperHeight) {
-                rotationTimeout = setTimeout(() => {
-                    cargarCartelera();
-                }, 15000);
+            if (container.clientHeight <= wrapper.clientHeight) {
+                rotationTimeout = setTimeout(() => { cargarCartelera(); }, 15000);
             } else {
                 let currentTop = 0;
                 scrollInterval = setInterval(() => {
@@ -272,9 +120,7 @@
                         currentTop -= 1;
                         if (Math.abs(currentTop) >= (container.clientHeight - wrapper.clientHeight + 60)) {
                             clearInterval(scrollInterval);
-                            rotationTimeout = setTimeout(() => {
-                                cargarCartelera();
-                            }, 4000);
+                            rotationTimeout = setTimeout(() => { cargarCartelera(); }, 4000);
                         } else {
                             container.style.transform = `translateY(${currentTop}px)`;
                         }
@@ -289,7 +135,7 @@
 
             try {
                 const response = await fetch(`https://ugm-2.vercel.app/api/cartelera?nocache=${Date.now()}`);
-                if (!response.ok) throw new Error('Error al conectar con la API');
+                if (!response.ok) throw new Error('Error API');
                 
                 const eventosRaw = await response.json();
                 container.innerHTML = '';
@@ -301,50 +147,29 @@
                     return;
                 }
 
-                const listaProcesada = [];
-
+                container.innerHTML = '';
+                
                 eventosRaw.forEach(ev => {
-                    const titulo = ev.title || ev.Title || "Evento sin título";
-                    const sala = ev.sala || ev.Sala || "Por definir";
-                    const tiempo = ev.casillaTiempo || ev.Fecha || ev.EventDate;
-                    const destino = ev.destinatario || ev.Destinatario || null;
-
                     let horaTexto = "--:--";
                     let etiquetaDia = "Evento";
 
-                    if (tiempo) {
-                        const dateObjeto = new Date(tiempo);
+                    if (ev.casillaTiempo) {
+                        const dateObjeto = new Date(ev.casillaTiempo);
                         if (!isNaN(dateObjeto.getTime())) {
                             horaTexto = dateObjeto.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Santiago' });
-                            
                             try {
                                 const opcionesDia = { weekday: 'short', day: 'numeric', timeZone: 'America/Santiago' };
                                 let diaTxt = dateObjeto.toLocaleDateString('es-CL', opcionesDia).replace('.', '');
                                 etiquetaDia = diaTxt.charAt(0).toUpperCase() + diaTxt.slice(1);
-                            } catch(e) {
-                                etiquetaDia = "Próximo";
-                            }
+                            } catch(e) { etiquetaDia = "Próximo"; }
                         }
                     }
 
-                    listaProcesada.push({
-                        title: titulo,
-                        sala: sala,
-                        destino: destino,
-                        hora: horaTexto,
-                        etiquetaDia: etiquetaDia
-                    });
-                });
-
-                container.innerHTML = '';
-                
-                listaProcesada.forEach(ev => {
-                    // Pasamos la variable destino amarrada correctamente
-                    const metaPublico = analizarDestinatario(ev.title, ev.destino);
+                    // Ejecutamos el detector multi-columna pasando los campos en bruto
+                    const metaPublico = asignarColoresMapeados(ev.title, ev.rawFields);
 
                     const card = document.createElement('div');
                     card.className = 'event-card';
-                    
                     card.innerHTML = `
                         <div class="event-info">
                             <div class="event-title">${ev.title}</div>
@@ -355,7 +180,7 @@
                         </div>
                         <div class="event-time">
                             <div class="event-day-label">${ev.etiquetaDia}</div>
-                            <div>${ev.hora}</div>
+                            <div>${horaTexto}</div>
                         </div>
                     `;
                     container.appendChild(card);
@@ -366,15 +191,13 @@
 
             } catch (error) {
                 console.error(error);
-                container.innerHTML = '<div class="no-events">⚠️ Esperando datos estables desde SharePoint...</div>';
+                container.innerHTML = '<div class="no-events">⚠️ Conectando con los servicios de SharePoint...</div>';
                 container.classList.add('fade-in');
                 setTimeout(cargarCartelera, 10000);
             }
         }
 
-        window.onload = () => {
-            cargarCartelera();
-        };
+        window.onload = () => { cargarCartelera(); };
     </script>
 </body>
 </html>
