@@ -20,7 +20,7 @@
             flex-direction: column;
         }
         
-        /* 🛠️ HEADER SIMÉTRICO Y ELIMINACIÓN DEL CONTENEDOR ANCHO */
+        /* 🛠️ HEADER PERFECCIONADO: SIMETRÍA EXTREMA */
         header {
             background-color: #002060;
             padding: 20px 0px; 
@@ -32,21 +32,10 @@
             position: relative;
         }
         
-        /* El logo de la esquina izquierda queda fijo a 40px del borde */
-        .logo-u {
-            position: absolute;
-            left: 40px;
-            top: 50%;
-            transform: translateY(-50%);
-            height: 65px;
-            width: auto;
-            z-index: 2;
-        }
-        
-        /* El título nace justo al lado del logo chico y se queda pegado a la orilla */
+        /* El título ahora nace CLAVADO a 40px de la orilla izquierda, igual que el reloj a la derecha */
         header h1 {
             position: absolute;
-            left: 125px; /* 40px de margen + 65px del logo + 20px de espacio libre */
+            left: 40px; /* Alineación perfecta con el borde físico de la pantalla */
             top: 50%;
             transform: translateY(-50%);
             font-size: 2.8rem;
@@ -57,7 +46,7 @@
             z-index: 2;
         }
         
-        /* El logo blanco-celeste central queda blindado en el centro absoluto */
+        /* Logo blanco-celeste centrado absoluto */
         .logo-centro-wrapper {
             position: absolute;
             left: 50%;
@@ -73,7 +62,7 @@
             width: auto;
         }
         
-        /* El bloque del reloj queda fijo a 40px del borde derecho */
+        /* El bloque del reloj se queda a 40px del borde derecho */
         #right-header {
             position: absolute;
             right: 40px;
@@ -191,7 +180,6 @@
 <body>
 
     <header>
-        <img src="https://www.ugm.cl/images/logo.png" alt="UGM" class="logo-u">
         <h1 id="main-title">EVENTOS DE HOY</h1>
         
         <div class="logo-centro-wrapper">
