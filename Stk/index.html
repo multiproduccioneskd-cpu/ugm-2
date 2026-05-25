@@ -64,18 +64,13 @@
         setInterval(updateClock, 1000);
         updateClock();
 
-        // 🧠 DETECTOR INTELIGENTE MULTI-COLUMNA DE SHAREPOINT
-        function asignarColoresMapeados(titulo, camposCompletos) {
+        // Función de asignación con salvavidas estricto ante valores nulos
+        function asignarColoresMapeados(titulo, f) {
             let textoColumna = "";
             
-            if (camposCompletos) {
-                // Buscamos todas las mañas con las que SharePoint pudo registrar la columna
-                let rawDestino = camposCompletos.Destinatario || 
-                                 camposCompletos.destinatario || 
-                                 camposCompletos.OData__Destinatario || 
-                                 camposCompletos.Destinatarios || 
-                                 camposCompletos.destinatarios || null;
-
+            if (f) {
+                // Buscamos de manera segura cualquier propiedad que se parezca
+                let rawDestino = f.Destinatario || f.destinatario || f.OData__Destinatario || f.Destinatarios || null;
                 if (rawDestino) {
                     if (typeof rawDestino === 'object') {
                         textoColumna = rawDestino.Value || rawDestino.value || "";
@@ -87,12 +82,11 @@
 
             let t = textoColumna.toLowerCase().trim();
 
-            // Si detecta el campo real en SharePoint, aplica los colores corporativos
             if (t.includes('administrativo')) return { texto: 'ADMINISTRATIVOS', color: '#6f42c1' };
             if (t.includes('escuela')) return { texto: 'ESCUELAS', color: '#198754' };
             if (t.includes('comunidad')) return { texto: 'COMUNIDAD UGM', color: '#00a896' };
 
-            // SALVAVIDAS: Si la columna sigue vacía por culpa de SharePoint, deduce el color por el título
+            // Caída por defecto si el campo está vacío: lee palabras clave del título
             const tObj = String(titulo).toLowerCase();
             if (tObj.includes('taller') || tObj.includes('integración') || tObj.includes('reunión') || tObj.includes('tricel')) {
                 return { texto: 'ADMINISTRATIVOS', color: '#6f42c1' }; 
@@ -131,17 +125,15 @@
 
         async function cargarCartelera() {
             const container = document.getElementById('events-container');
-            container.classList.remove('fade-in');
-
+            
             try {
                 const response = await fetch(`https://ugm-2.vercel.app/api/cartelera?nocache=${Date.now()}`);
-                if (!response.ok) throw new Error('Error API');
+                if (!response.ok) throw new Error('Error de respuesta API');
                 
                 const eventosRaw = await response.json();
-                container.innerHTML = '';
                 
                 if (!eventosRaw || eventosRaw.length === 0 || eventosRaw.error) {
-                    container.innerHTML = '<div class="no-events">No hay eventos vigentes registrados en SharePoint</div>';
+                    container.innerHTML = '<div class="no-events">No hay eventos registrados en SharePoint</div>';
                     container.classList.add('fade-in');
                     setTimeout(cargarCartelera, 10000);
                     return;
@@ -150,48 +142,52 @@
                 container.innerHTML = '';
                 
                 eventosRaw.forEach(ev => {
-                    let horaTexto = "--:--";
-                    let etiquetaDia = "Evento";
+                    // Try-Catch interno: Si una tarjeta falla, NO congela la pantalla completa
+                    try {
+                        let horaTexto = "--:--";
+                        let etiquetaDia = "Evento";
 
-                    if (ev.casillaTiempo) {
-                        const dateObjeto = new Date(ev.casillaTiempo);
-                        if (!isNaN(dateObjeto.getTime())) {
-                            horaTexto = dateObjeto.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Santiago' });
-                            try {
-                                const opcionesDia = { weekday: 'short', day: 'numeric', timeZone: 'America/Santiago' };
-                                let diaTxt = dateObjeto.toLocaleDateString('es-CL', opcionesDia).replace('.', '');
-                                etiquetaDia = diaTxt.charAt(0).toUpperCase() + diaTxt.slice(1);
-                            } catch(e) { etiquetaDia = "Próximo"; }
+                        if (ev.casillaTiempo) {
+                            const dateObjeto = new Date(ev.casillaTiempo);
+                            if (!isNaN(dateObjeto.getTime())) {
+                                horaTexto = dateObjeto.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Santiago' });
+                                try {
+                                    const opcionesDia = { weekday: 'short', day: 'numeric', timeZone: 'America/Santiago' };
+                                    let diaTxt = dateObjeto.toLocaleDateString('es-CL', opcionesDia).replace('.', '');
+                                    etiquetaDia = diaTxt.charAt(0).toUpperCase() + diaTxt.slice(1);
+                                } catch(e) { etiquetaDia = "Próximo"; }
+                            }
                         }
-                    }
 
-                    // Ejecutamos el detector multi-columna pasando los campos en bruto
-                    const metaPublico = asignarColoresMapeados(ev.title, ev.rawFields);
+                        const metaPublico = asignarColoresMapeados(ev.title, ev.rawFields);
 
-                    const card = document.createElement('div');
-                    card.className = 'event-card';
-                    card.innerHTML = `
-                        <div class="event-info">
-                            <div class="event-title">${ev.title}</div>
-                            <div class="event-badges">
-                                <div class="event-room">${ev.sala}</div>
-                                <div class="event-destinatario" style="background-color: ${metaPublico.color};">${metaPublico.texto}</div>
+                        const card = document.createElement('div');
+                        card.className = 'event-card';
+                        card.innerHTML = `
+                            <div class="event-info">
+                                <div class="event-title">${ev.title}</div>
+                                <div class="event-badges">
+                                    <div class="event-room">${ev.sala}</div>
+                                    <div class="event-destinatario" style="background-color: ${metaPublico.color};">${metaPublico.texto}</div>
+                                </div>
                             </div>
-                        </div>
-                        <div class="event-time">
-                            <div class="event-day-label">${ev.etiquetaDia}</div>
-                            <div>${horaTexto}</div>
-                        </div>
-                    `;
-                    container.appendChild(card);
+                            <div class="event-time">
+                                <div class="event-day-label">${ev.etiquetaDia}</div>
+                                <div>${horaTexto}</div>
+                            </div>
+                        `;
+                        container.appendChild(card);
+                    } catch (errCard) {
+                        console.error("Error renderizando tarjeta individual:", errCard);
+                    }
                 });
 
                 container.classList.add('fade-in');
                 setTimeout(iniciarManejoPantalla, 400);
 
             } catch (error) {
-                console.error(error);
-                container.innerHTML = '<div class="no-events">⚠️ Conectando con los servicios de SharePoint...</div>';
+                console.error("Error general en carga:", error);
+                container.innerHTML = '<div class="no-events">⚠️ Conectando con la cartelera UGM...</div>';
                 container.classList.add('fade-in');
                 setTimeout(cargarCartelera, 10000);
             }
