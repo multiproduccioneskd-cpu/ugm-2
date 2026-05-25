@@ -1,61 +1,74 @@
-module.exports = async (req, res) => {
-    res.setHeader('Access-Control-Allow-Credentials', true);
+export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
 
-    if (req.method === 'OPTIONS') {
-        res.status(200).end();
-        return;
-    }
+    if (req.method === 'OPTIONS') return res.status(200).end();
 
     try {
-        const tokenUrl = `https://login.microsoftonline.com/${process.env.TENANT_ID}/oauth2/v2.0/token`;
-        const bodyParams = new URLSearchParams();
-        bodyParams.append('client_id', process.env.CLIENT_ID);
-        bodyParams.append('scope', 'https://graph.microsoft.com/.default');
-        bodyParams.append('client_secret', process.env.CLIENT_SECRET);
-        bodyParams.append('grant_type', 'client_credentials');
+        const { TENANT_ID, CLIENT_ID, CLIENT_SECRET } = process.env;
 
-        const tokenResponse = await fetch(tokenUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: bodyParams.toString()
+        // 1. Obtener Token de Azure Identity
+        const tokenUrl = `https://login.microsoftonline.com/${TENANT_ID}/oauth2/v2.0/token`;
+        const params = new URLSearchParams({
+            client_id: CLIENT_ID,
+            scope: 'https://graph.microsoft.com/.default',
+            client_secret: CLIENT_SECRET,
+            grant_type: 'client_credentials'
         });
 
-        const tokenData = await tokenResponse.json();
+        const tokenRes = await fetch(tokenUrl, {
+            method: 'POST',
+            body: params,
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+        });
+        
+        if (!tokenRes.ok) {
+            const errText = await tokenRes.text();
+            throw new Error(`Error Azure Token: ${errText}`);
+        }
+        const tokenData = await tokenRes.json();
         const accessToken = tokenData.access_token;
 
-        if (!accessToken) {
-            return res.status(500).json({ error: "Error de token" });
-        }
+        // 2. RUTA CORREGIDA CON EL SITIO "Calen" Y LA LISTA "lista calen"
+        const graphUrl = `https://graph.microsoft.com/v1.0/sites/ugmchile.sharepoint.com:/sites/Calen:/lists/lista%20calen/items?expand=fields&$top=100`;
 
-        const graphUrl = `https://graph.microsoft.com/v1.0/sites/${process.env.SHAREPOINT_SITE_ID}/lists/${process.env.SHAREPOINT_LIST_ID}/items?expand=fields`;
-        const graphResponse = await fetch(graphUrl, {
+        const graphRes = await fetch(graphUrl, {
             method: 'GET',
-            headers: { 'Authorization': `Bearer ${accessToken}` }
+            headers: { 
+                'Authorization': `Bearer ${accessToken}`,
+                'Accept': 'application/json'
+            }
         });
 
-        const graphData = await graphResponse.json();
-        const items = graphData.value || [];
+        if (!graphRes.ok) {
+            const errText = await graphRes.text();
+            throw new Error(`Microsoft Graph respondió: ${errText}`);
+        }
+        
+        const graphData = await graphRes.json();
+        const rawItems = graphData.value || [];
 
-        // Retornamos un mapeo ultra básico para no marear a Graph
-        const eventosProcesados = items.map(item => {
+        // 3. Mapeo de columnas para la pantalla de la tele
+        const eventosProcesados = rawItems.map(item => {
             const f = item.fields || {};
+            const salaReal = f["U_x002e_G_x002e_M_x0020_Sala"] || f["Sala"] || f["Location"] || "Por definir";
+            const fechaReal = f["EventDate"] || f["EventDateTime"] || f["StartDate"] || "";
+
             return {
-                title: f.Title || f.title || "Evento sin título",
-                sala: f.Sala || f.sala || "Por definir",
-                casillaTiempo: f.Fecha || f.fecha || f.EventDate || null,
-                // Pasamos todo el sub-objeto fields de forma segura
-                rawFields: f
+                title: f.Title || f.Title0 || "Evento sin título",
+                sala: salaReal,
+                fecha: fechaReal
             };
         });
 
-        res.setHeader('Cache-Control', 'no-shadow, no-store, must-revalidate');
-        res.status(200).json(eventosProcesados);
+        return res.status(200).json(eventosProcesados);
 
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: "Error de conexión" });
+        console.error("Fallo crítico backend:", error);
+        return res.status(500).json({ 
+            error: "Error interno del servidor backend", 
+            mensaje: error.message 
+        });
     }
 };
