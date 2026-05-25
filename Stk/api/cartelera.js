@@ -1,5 +1,4 @@
 module.exports = async (req, res) => {
-    // Cabeceras CORS de siempre
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
@@ -11,9 +10,7 @@ module.exports = async (req, res) => {
     }
 
     try {
-        // 1. Token con Azure
         const tokenUrl = `https://login.microsoftonline.com/${process.env.TENANT_ID}/oauth2/v2.0/token`;
-        
         const bodyParams = new URLSearchParams();
         bodyParams.append('client_id', process.env.CLIENT_ID);
         bodyParams.append('scope', 'https://graph.microsoft.com/.default');
@@ -33,9 +30,7 @@ module.exports = async (req, res) => {
             return res.status(500).json({ error: "Error de token" });
         }
 
-        // 2. Consulta limpia a SharePoint pidiendo el objeto fields completo en bruto
         const graphUrl = `https://graph.microsoft.com/v1.0/sites/${process.env.SHAREPOINT_SITE_ID}/lists/${process.env.SHAREPOINT_LIST_ID}/items?expand=fields`;
-        
         const graphResponse = await fetch(graphUrl, {
             method: 'GET',
             headers: { 'Authorization': `Bearer ${accessToken}` }
@@ -44,16 +39,15 @@ module.exports = async (req, res) => {
         const graphData = await graphResponse.json();
         const items = graphData.value || [];
 
-        // 3. Mapeo simplificado: Mandamos el objeto "fields" completo en bruto hacia el HTML
-        // Así el HTML puede buscar la columna como quiera sin romper el servidor
+        // Retornamos un mapeo ultra básico para no marear a Graph
         const eventosProcesados = items.map(item => {
+            const f = item.fields || {};
             return {
-                title: item.fields ? (item.fields.Title || item.fields.title || "Evento sin título") : "Evento sin título",
-                sala: item.fields ? (item.fields.Sala || item.fields.sala || "Por definir") : "Por definir",
-                casillaTiempo: item.fields ? (item.fields.Fecha || item.fields.fecha || item.fields.EventDate || null) : null,
-                
-                // 🚀 AQUÍ ESTÁ EL TRUCO: Mandamos todo el contenedor fields para inspeccionarlo en el navegador
-                rawFields: item.fields || {}
+                title: f.Title || f.title || "Evento sin título",
+                sala: f.Sala || f.sala || "Por definir",
+                casillaTiempo: f.Fecha || f.fecha || f.EventDate || null,
+                // Pasamos todo el sub-objeto fields de forma segura
+                rawFields: f
             };
         });
 
