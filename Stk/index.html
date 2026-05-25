@@ -20,7 +20,6 @@
             flex-direction: column;
         }
         
-        /* 🛠️ HEADER PERFECCIONADO: SIMETRÍA EXTREMA */
         header {
             background-color: #002060;
             padding: 20px 0px; 
@@ -32,10 +31,9 @@
             position: relative;
         }
         
-        /* El título ahora nace CLAVADO a 40px de la orilla izquierda, igual que el reloj a la derecha */
         header h1 {
             position: absolute;
-            left: 40px; /* Alineación perfecta con el borde físico de la pantalla */
+            left: 40px; 
             top: 50%;
             transform: translateY(-50%);
             font-size: 2.8rem;
@@ -46,7 +44,6 @@
             z-index: 2;
         }
         
-        /* Logo blanco-celeste centrado absoluto */
         .logo-centro-wrapper {
             position: absolute;
             left: 50%;
@@ -62,7 +59,6 @@
             width: auto;
         }
         
-        /* El bloque del reloj se queda a 40px del borde derecho */
         #right-header {
             position: absolute;
             right: 40px;
@@ -158,7 +154,7 @@
             display: flex;
             flex-direction: column;
             justify-content: center;
-            min-width: 200px;
+            min-width: 210px;
         }
         .event-day-label {
             font-size: 1.2rem;
@@ -168,6 +164,19 @@
             margin-bottom: 4px;
             letter-spacing: 1px;
         }
+        
+        /* 🚨 NUEVO ESTILO: CAJITA "EN CURSO" */
+        .badge-en-curso {
+            color: #ff4a4a !important; /* Rojo llamativo */
+            animation: pulse 2s infinite; /* Efecto sutil de parpadeo */
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 0.7; }
+            50% { opacity: 1; }
+            100% { opacity: 0.7; }
+        }
+
         .no-events {
             font-size: 2.8rem;
             text-align: center;
@@ -277,57 +286,69 @@
                     return;
                 }
 
-                const hoyChileString = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' }); 
-                const horaChileString = new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Santiago' });
+                // Obtener fecha y hora de referencia exacta de Chile
+                const ahoraChile = new Date(new Date().toLocaleString("en-US", {timeZone: "America/Santiago"}));
+                const hoyChileString = ahoraChile.toLocaleDateString('sv-SE'); 
 
-                const listaProcesada = eventosRaw.map(ev => {
-                    let fechaTexto = "9999-12-31";
-                    let horaTexto = "00:00";
-                    let esHoy = false;
+                const listaProcesada = [];
 
+                eventosRaw.forEach(ev => {
                     if (ev.casillaTiempo && typeof ev.casillaTiempo === 'string') {
                         const dateObjeto = new Date(ev.casillaTiempo);
                         
                         if (!isNaN(dateObjeto.getTime())) {
                             const esTodoElDia = ev.casillaTiempo.includes("T00:00:00") || ev.casillaTiempo.includes("T02:00:00");
-
+                            
+                            let fechaTexto = dateObjeto.toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
+                            let horaTexto = dateObjeto.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Santiago' });
+                            
                             if (esTodoElDia) {
                                 fechaTexto = ev.casillaTiempo.split('T')[0];
                                 horaTexto = "Todo el día";
-                            } else {
-                                const opcionesFecha = { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'America/Santiago' };
-                                const opcionesHora = { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Santiago' };
-                                
-                                fechaTexto = dateObjeto.toLocaleDateString('sv-SE', opcionesFecha);
-                                horaTexto = dateObjeto.toLocaleTimeString('es-CL', opcionesHora);
                             }
-                            esHoy = (fechaTexto === hoyChileString);
+
+                            const esHoy = (fechaTexto === hoyChileString);
+                            let etiquetaEstado = "Hoy";
+
+                            // Lógica de filtrado de 30 minutos e indicador "En curso" para eventos de Hoy
+                            if (esHoy && !esTodoElDia) {
+                                const horaEventoObj = new Date(dateObjeto.toLocaleString("en-US", {timeZone: "America/Santiago"}));
+                                
+                                // Diferencia en minutos (Tiempo actual - Tiempo del evento)
+                                const diferenciaMinutos = (ahoraChile - horaEventoObj) / 60000;
+
+                                // 1. Si pasaron más de 30 minutos del inicio, se ignora y se elimina de la lista
+                                if (diferenciaMinutos > 30) {
+                                    return; 
+                                }
+                                
+                                // 2. Si ya empezó pero lleva 30 minutos o menos, se marca como "En curso"
+                                if (diferenciaMinutos >= 0 && diferenciaMinutos <= 30) {
+                                    etiquetaEstado = "En curso";
+                                }
+                            }
+
+                            listaProcesada.push({
+                                title: ev.title || "Evento sin título",
+                                sala: ev.sala || "Por definir",
+                                hora: horaTexto,
+                                fechaStr: fechaTexto,
+                                esHoy: esHoy,
+                                etiquetaEstado: etiquetaEstado
+                            });
                         }
                     }
-
-                    return {
-                        title: ev.title || "Evento sin título",
-                        sala: ev.sala || "Por definir",
-                        hora: horaTexto,
-                        fechaStr: fechaTexto,
-                        esHoy: esHoy
-                    };
                 });
 
                 let muestraFinal = [];
 
                 if (modoVistaSemanas) {
                     tituloSeccion.innerText = "PRÓXIMOS EVENTOS";
-
                     const fechaActual = new Date();
                     const diaSemana = fechaActual.getDay(); 
-                    
                     let diasHastaFinDeSemana = 7 - diaSemana;
                     if (diaSemana === 0) diasHastaFinDeSemana = 0; 
-
-                    if (diaSemana === 5 || diaSemana === 6 || diaSemana === 0) {
-                        diasHastaFinDeSemana += 7;
-                    }
+                    if (diaSemana === 5 || diaSemana === 6 || diaSemana === 0) diasHastaFinDeSemana += 7;
 
                     const fechaLimiteObj = new Date();
                     fechaLimiteObj.setDate(fechaActual.getDate() + diasHastaFinDeSemana);
@@ -336,7 +357,8 @@
                     muestraFinal = listaProcesada.filter(ev => !ev.esHoy && ev.fechaStr > hoyChileString && ev.fechaStr <= limiteString);
                 } else {
                     tituloSeccion.innerText = "EVENTOS DE HOY";
-                    muestraFinal = listaProcesada.filter(ev => ev.esHoy && (ev.hora === "Todo el día" || ev.hora >= horaChileString));
+                    // Muestra los de hoy que sobrevivieron al filtro de los 30 minutos pasados
+                    muestraFinal = listaProcesada.filter(ev => ev.esHoy);
                 }
 
                 if (muestraFinal.length === 0 && !modoVistaSemanas) {
@@ -367,7 +389,13 @@
                 container.innerHTML = '';
                 
                 muestraFinal.forEach(ev => {
-                    let etiquetaDia = "Hoy";
+                    let etiquetaDia = ev.etiquetaEstado;
+                    let claseExtra = "";
+
+                    // Si está en curso, agregamos la clase CSS de animación dinámica
+                    if (etiquetaDia === "En curso") {
+                        claseExtra = "badge-en-curso";
+                    }
                     
                     if (!ev.esHoy && ev.fechaStr !== "9999-12-31") {
                         try {
@@ -389,7 +417,7 @@
                             <div class="event-room">${ev.sala}</div>
                         </div>
                         <div class="event-time">
-                            <div class="event-day-label">${etiquetaDia}</div>
+                            <div class="event-day-label ${claseExtra}">${etiquetaDia}</div>
                             <div>${ev.hora}</div>
                         </div>
                     `;
