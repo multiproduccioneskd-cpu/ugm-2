@@ -1,7 +1,7 @@
 const axios = require('axios');
 
-export default async function handler(req, res) {
-    // 1. Configuración de cabeceras CORS para la tele de la U
+module.exports = async (req, res) => {
+    // 1. Cabeceras CORS nativas
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
@@ -13,7 +13,7 @@ export default async function handler(req, res) {
     }
 
     try {
-        // 2. Pedir el Token de acceso a Microsoft de forma nativa por HTTP
+        // 2. Rescatar Token de Microsoft por HTTP Puro
         const tokenUrl = `https://login.microsoftonline.com/${process.env.TENANT_ID}/oauth2/v2.0/token`;
         
         const params = new URLSearchParams();
@@ -28,7 +28,7 @@ export default async function handler(req, res) {
 
         const accessToken = tokenResponse.data.access_token;
 
-        // 3. Pegarle directo a la API de SharePoint para traer los eventos
+        // 3. Pegarle directo a la API de SharePoint
         const graphUrl = `https://graph.microsoft.com/v1.0/sites/${process.env.SHAREPOINT_SITE_ID}/lists/${process.env.SHAREPOINT_LIST_ID}/items?expand=fields`;
         
         const graphResponse = await axios.get(graphUrl, {
@@ -37,7 +37,7 @@ export default async function handler(req, res) {
 
         const items = graphResponse.data.value || [];
 
-        // 4. Mapear los datos limpios para tu index.html
+        // 4. Mapear de forma limpia con soporte para la columna Destinatario
         const eventosProcesados = items.map(item => {
             return {
                 title: item.fields.Title || item.fields.title || "Evento sin título",
@@ -47,7 +47,7 @@ export default async function handler(req, res) {
             };
         });
 
-        // Forzar a Vercel a no guardar caché vieja
+        // Forzar no-cache en Vercel
         res.setHeader('Cache-Control', 'no-shadow, no-store, must-revalidate');
         res.status(200).json(eventosProcesados);
 
@@ -55,4 +55,4 @@ export default async function handler(req, res) {
         console.error("Error en cartelera API:", error.response ? error.response.data : error.message);
         res.status(500).json({ error: "Error de conexión con SharePoint", detalle: error.message });
     }
-}
+};
