@@ -140,8 +140,6 @@
             text-transform: uppercase;
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
-        
-        /* 🏷️ ESTILO BASE REPARADO DE LA CAJITA DE DESTINATARIO */
         .event-destinatario {
             font-size: 1.6rem;
             color: #ffffff;
@@ -152,7 +150,6 @@
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
             transition: background-color 0.3s ease;
         }
-        
         .event-time {
             font-size: 3.2rem;
             font-weight: 800;
@@ -176,12 +173,10 @@
             margin-bottom: 4px;
             letter-spacing: 1px;
         }
-        
         .badge-en-curso {
             color: #ff4a4a !important; 
             animation: pulse 2s infinite; 
         }
-        
         @keyframes pulse {
             0% { opacity: 0.7; }
             50% { opacity: 1; }
@@ -235,41 +230,47 @@
         setInterval(updateClock, 1000);
         updateClock();
 
-        // 🎨 MOTOR DE COLOR ARREGLADO Y BLINDADO
-        function obtenerColorDestinatario(valorPublico) {
-            // Si viene vacío o nulo, por defecto el Celeste Corporativo original
-            if (!valorPublico) return '#00a896'; 
+        // 🧠 EXTRACTOR ULTRA-BLINDADO PARA COLUMNAS TIPO "ELECCIÓN" (CHOICE)
+        function NormalizarValorSharePoint(valor) {
+            if (!valor) return '';
             
-            // Forzamos la data a texto limpio, sin importar si es objeto u opción de SharePoint
-            let texto = "";
-            if (typeof valorPublico === 'object') {
-                texto = valorPublico.Value || valorPublico.value || JSON.stringify(valorPublico);
-            } else {
-                texto = String(valorPublico);
+            // Si viene como Objeto Directo (ej: { Value: "Escuelas" })
+            if (typeof valor === 'object') {
+                if (valor.Value) return String(valor.Value);
+                if (valor.value) return String(valor.value);
+                // Si es un Array/Lista de opciones (por si tuviera selección múltiple activa)
+                if (Array.isArray(valor) && valor.length > 0) {
+                    let primerElemento = valor[0];
+                    if (typeof primerElemento === 'object') {
+                        return String(primerElemento.Value || primerElemento.value || '');
+                    }
+                    return String(primerElemento);
+                }
             }
+            return String(valor);
+        }
+
+        // 🎨 ASIGNADOR DE COLORES SEGÚN EL TEXTO NORMALIZADO
+        function obtenerColorDestinatario(valorRaw) {
+            const textoLimpio = NormalizarValorSharePoint(valorRaw).toLowerCase().trim();
             
-            // Pasamos a minúsculas y limpiamos espacios fantasmas
-            const t = texto.toLowerCase().trim();
+            if (!textoLimpio) return '#00a896'; // Celeste Corporativo base por defecto
             
-            if (t.includes('comunidad')) {
+            if (textoLimpio.includes('comunidad')) {
                 return '#00a896'; // Turquesa / Celeste Vivo -> Comunidad UGM
-            } else if (t.includes('administrativo')) {
+            } else if (textoLimpio.includes('administrativo')) {
                 return '#6f42c1'; // Morado elegante -> Administrativos
-            } else if (t.includes('escuela')) {
+            } else if (textoLimpio.includes('escuela')) {
                 return '#198754'; // Verde institucional -> Escuelas
             }
             
-            // Fallback estético al celeste si no calza ninguna palabra clave
             return '#00a896'; 
         }
 
-        // FUNCIÓN AUXILIAR: Mapea el texto limpio para mostrar dentro de la caja
-        function obtenerTextoDestinatario(valorPublico) {
-            if (!valorPublico) return 'TODO PÚBLICO';
-            if (typeof valorPublico === 'object') {
-                return valorPublico.Value || valorPublico.value || 'TODO PÚBLICO';
-            }
-            return String(valorPublico).trim();
+        // 🏷️ FORMATEADOR DE TEXTO PARA MOSTRAR DENTRO DEL BOTÓN
+        function obtenerTextoDestinatario(valorRaw) {
+            const textoFinal = NormalizarValorSharePoint(valorRaw).trim();
+            return textoFinal ? textoFinal.toUpperCase() : 'TODO PÚBLICO';
         }
 
         function iniciarManejoPantalla() {
@@ -369,11 +370,11 @@
                                 }
                             }
 
-                            // 🛠️ Mapeo CORRECTO de la columna de SharePoint "Destinatario"
+                            // Captura flexible buscando la propiedad Destinatario sin romper el ciclo
                             listaProcesada.push({
                                 title: ev.title || "Evento sin título",
                                 sala: ev.sala || "Por definir",
-                                rawDestino: ev.destinatario || ev.Destinatario || null, 
+                                rawDestino: ev.Destinatario || ev.destinatario || null, 
                                 hora: horaTexto,
                                 fechaStr: fechaTexto,
                                 esHoy: esHoy,
@@ -450,7 +451,6 @@
                         }
                     }
 
-                    // Calculamos el color y el texto limpio justo antes de renderizar
                     const colorBadge = obtenerColorDestinatario(ev.rawDestino);
                     const textoMostrar = obtenerTextoDestinatario(ev.rawDestino);
 
