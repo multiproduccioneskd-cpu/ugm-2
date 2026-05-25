@@ -148,7 +148,6 @@
             border-radius: 8px;
             text-transform: uppercase;
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-            transition: background-color 0.3s ease;
         }
         .event-time {
             font-size: 3.2rem;
@@ -230,40 +229,34 @@
         setInterval(updateClock, 1000);
         updateClock();
 
-        // 🧠 DESTRIPADOR AUTOMÁTICO DE COLUMNAS CHOICE DE SHAREPOINT
-        function NormalizarValorSharePoint(valor) {
-            if (!valor) return '';
-            if (typeof valor === 'object') {
-                if (valor.Value) return String(valor.Value);
-                if (valor.value) return String(valor.value);
-                if (Array.isArray(valor) && valor.length > 0) {
-                    let primerElemento = valor[0];
-                    if (typeof primerElemento === 'object') {
-                        return String(primerElemento.Value || primerElemento.value || '');
-                    }
-                    return String(primerElemento);
-                }
+        // 🧠 ANALIZADOR INTELIGENTE DE PALABRAS CLAVE DIRECTO EN EL TÍTULO
+        function analizarDestinatario(titulo, rawDestino) {
+            let texto = "";
+            if (rawDestino) {
+                if (typeof rawDestino === 'object') texto = rawDestino.Value || rawDestino.value || "";
+                else texto = String(rawDestino);
             }
-            return String(valor);
-        }
-
-        function obtenerColorDestinatario(valorRaw) {
-            const textoLimpio = NormalizarValorSharePoint(valorRaw).toLowerCase().trim();
-            if (!textoLimpio) return '#00a896'; // Si el campo no viene o está vacío, celeste corporativo original
             
-            if (textoLimpio.includes('comunidad')) {
-                return '#00a896'; // Turquesa / Celeste Corporativo UGM
-            } else if (textoLimpio.includes('administrativo')) {
-                return '#6f42c1'; // Morado elegante
-            } else if (textoLimpio.includes('escuela')) {
-                return '#198754'; // Verde esmeralda
+            // Si la columna no trae nada en el JSON de la API, leemos las palabras clave en el título
+            if (!texto) {
+                const tObj = String(titulo).toLowerCase();
+                if (tObj.includes('taller') || tObj.includes('integración') || tObj.includes('reunión') || tObj.includes('tricel')) {
+                    return { texto: 'ADMINISTRATIVOS', color: '#6f42c1' }; // Morado
+                }
+                if (tObj.includes('escuela') || tObj.includes('charla') || tObj.includes('sesión')) {
+                    return { texto: 'ESCUELAS', color: '#198754' }; // Verde
+                }
+                if (tObj.includes('cine') || tObj.includes('conversatorio') || tObj.includes('dev talks') || tObj.includes('ugm')) {
+                    return { texto: 'COMUNIDAD UGM', color: '#00a896' }; // Turquesa
+                }
+                return { texto: 'COMUNIDAD UGM', color: '#00a896' }; // Fallback estético
             }
-            return '#00a896'; 
-        }
 
-        function obtenerTextoDestinatario(valorRaw) {
-            const textoFinal = NormalizarValorSharePoint(valorRaw).trim();
-            return textoFinal ? textoFinal.toUpperCase() : 'TODO PÚBLICO';
+            const t = texto.toLowerCase().trim();
+            if (t.includes('comunidad')) return { texto: 'COMUNIDAD UGM', color: '#00a896' };
+            if (t.includes('administrativo')) return { texto: 'ADMINISTRATIVOS', color: '#6f42c1' };
+            if (t.includes('escuela')) return { texto: 'ESCUELAS', color: '#198754' };
+            return { texto: texto.toUpperCase(), color: '#00a896' };
         }
 
         function iniciarManejoPantalla() {
@@ -299,10 +292,6 @@
             }
         }
 
-        function MathClonSiguiente() {
-             siguientePantalla();
-        }
-
         function siguientePantalla() {
             const container = document.getElementById('events-container');
             container.classList.remove('fade-in'); 
@@ -327,7 +316,7 @@
                 if (!eventosRaw || eventosRaw.length === 0 || eventosRaw.error) {
                     container.innerHTML = '<div class="no-events">No hay eventos registrados en SharePoint</div>';
                     container.classList.add('fade-in');
-                    rotationTimeout = setTimeout(MathClonSiguiente, 10000);
+                    rotationTimeout = setTimeout(siguientePantalla, 10000);
                     return;
                 }
 
@@ -358,10 +347,12 @@
                                 const horaEventoObj = new Date(dateObjeto.toLocaleString("en-US", {timeZone: "America/Santiago"}));
                                 const diferenciaMinutos = (ahoraChile - horaEventoObj) / 60000;
 
+                                // 🚨 Filtro automático: Elimina de pantalla si lleva más de 30 minutos de retraso/inicio
                                 if (diferenciaMinutos > 30) {
                                     return; 
                                 }
                                 
+                                // Marca como "En curso" dinámico
                                 if (diferenciaMinutos >= 0 && diferenciaMinutos <= 30) {
                                     etiquetaEstado = "En curso";
                                 }
@@ -419,7 +410,7 @@
                     container.innerHTML = '<div class="no-events">No hay más eventos programados</div>';
                     container.classList.add('fade-in');
                     modoVistaSemanas = !modoVistaSemanas;
-                    rotationTimeout = setTimeout(MathClonSiguiente, 8000);
+                    rotationTimeout = setTimeout(siguientePantalla, 8000);
                     return;
                 }
 
@@ -447,8 +438,8 @@
                         }
                     }
 
-                    const colorBadge = obtenerColorDestinatario(ev.rawDestino);
-                    const textoMostrar = obtenerTextoDestinatario(ev.rawDestino);
+                    // Forzar el análisis dinámico de texto e inyección de colores corporativos
+                    const metaPublico = analizarDestinatario(ev.title, ev.rawDestino);
 
                     const card = document.createElement('div');
                     card.className = 'event-card';
@@ -458,7 +449,7 @@
                             <div class="event-title">${ev.title}</div>
                             <div class="event-badges">
                                 <div class="event-room">${ev.sala}</div>
-                                <div class="event-destinatario" style="background-color: ${colorBadge};">${textoMostrar}</div>
+                                <div class="event-destinatario" style="background-color: ${metaPublico.color};">${metaPublico.texto}</div>
                             </div>
                         </div>
                         <div class="event-time">
@@ -476,7 +467,7 @@
                 console.error(error);
                 container.innerHTML = '<div class="no-events">⚠️ Error de conexión</div>';
                 container.classList.add('fade-in');
-                rotationTimeout = setTimeout(MathClonSiguiente, 10000);
+                rotationTimeout = setTimeout(siguientePantalla, 10000);
             }
         }
 
