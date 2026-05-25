@@ -131,7 +131,6 @@
             line-height: 1.2;
         }
         
-        /* Contenedor de las cajitas informativas */
         .event-badges {
             display: flex;
             gap: 15px;
@@ -149,16 +148,16 @@
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
         
-        /* 🏷️ Estilo para la cajita de destinatario */
+        /* 🏷️ ESTILO BASE PARA LA CAJITA DE DESTINATARIO */
         .event-destinatario {
             font-size: 1.6rem;
             color: #ffffff;
             font-weight: bold;
-            background-color: #00a896; /* Turquesa oscuro súper corporativo */
             padding: 6px 20px;
             border-radius: 8px;
             text-transform: uppercase;
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            transition: background-color 0.3s ease;
         }
         
         .event-time {
@@ -243,6 +242,24 @@
         }
         setInterval(updateClock, 1000);
         updateClock();
+
+        // 🎨 FUNCIÓN INTELIGENTE DE COLORES PARA EL PÚBLICO
+        function obtenerColorDestinatario(textoPublico) {
+            if (!textoPublico) return '#4a5d6e'; // Gris corporativo si viene vacío
+            
+            // Limpiamos espacios y pasamos a minúsculas para evitar errores si lo escriben mal en SharePoint
+            const t = textoPublico.toLowerCase().trim();
+            
+            if (t.includes('comunidad')) {
+                return '#00a896'; // Turquesa / Celeste Vivo para Comunidad UGM
+            } else if (t.includes('administrativo')) {
+                return '#6f42c1'; // Morado elegante para Administrativos
+            } else if (t.includes('escuela')) {
+                return '#198754'; // Verde institucional para Escuelas
+            }
+            
+            return '#4a5d6e'; // Gris azulado por defecto si es otro tipo
+        }
 
         function iniciarManejoPantalla() {
             if (scrollInterval) clearInterval(scrollInterval);
@@ -341,7 +358,6 @@
                                 }
                             }
 
-                            // 🛠️ Mapeo blindado para capturar la nueva columna sin importar mayúscula o minúscula
                             listaProcesada.push({
                                 title: ev.title || "Evento sin título",
                                 sala: ev.sala || "Por definir",
@@ -422,6 +438,9 @@
                         }
                     }
 
+                    // Calculamos el color de fondo dinámico para esta tarjeta específica
+                    const colorBadge = obtenerColorDestinatario(ev.destino);
+
                     const card = document.createElement('div');
                     card.className = 'event-card';
                     
@@ -430,7 +449,7 @@
                             <div class="event-title">${ev.title}</div>
                             <div class="event-badges">
                                 <div class="event-room">${ev.sala}</div>
-                                <div class="event-type event-destinatario">${ev.destino}</div>
+                                <div class="event-destinatario" style="background-color: ${colorBadge};">${ev.destino}</div>
                             </div>
                         </div>
                         <div class="event-time">
