@@ -1,28 +1,7 @@
-import { ConfidentialClientApplication } from "@azure/msal-node";
-import axios from "axios";
-
-// 🛠️ CONFIGURACIÓN DE CREDENCIALES (Usa las variables de entorno de tu Vercel)
-const msalConfig = {
-    auth: {
-        clientId: process.env.CLIENT_ID || process.env.NEXT_PUBLIC_CLIENT_ID,
-        authority: `https://login.microsoftonline.com/${process.env.TENANT_ID}`,
-        clientSecret: process.env.CLIENT_SECRET,
-    }
-};
-
-const tokenRequest = {
-    scopes: ["https://graph.microsoft.com/.default"],
-};
-
-const cca = new ConfidentialClientApplication(msalConfig);
-
-async function getAccessToken() {
-    const response = await cca.acquireTokenByClientCredential(tokenRequest);
-    return response.accessToken;
-}
+const axios = require('axios');
 
 export default async function handler(req, res) {
-    // Cabeceras CORS obligatorias para la tele de la U
+    // 1. Cabeceras CORS obligatorias para que la tele lea la API sin bloqueos
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
@@ -34,33 +13,43 @@ export default async function handler(req, res) {
     }
 
     try {
-        const token = await getAccessToken();
+        // 2. Autenticación con Microsoft para conectar con SharePoint usando tus Variables de Entorno de Vercel
+        const tokenUrl = `https://login.microsoftonline.com/${process.env.TENANT_ID}/oauth2/v2.0/token`;
         
-        // Llamado limpio a Microsoft Graph usando tus variables de entorno del Site y la Lista
-        const url = `https://graph.microsoft.com/v1.0/sites/${process.env.SHAREPOINT_SITE_ID}/lists/${process.env.SHAREPOINT_LIST_ID}/items?expand=fields`;
-        
-        const response = await axios.get(url, {
-            headers: {
-                Authorization: `Bearer ${token}`,
-                Accept: "application/json",
-            }
+        const params = new URLSearchParams();
+        params.append('client_id', process.env.CLIENT_ID);
+        params.append('scope', 'https://graph.microsoft.com/.default');
+        params.append('client_secret', process.env.CLIENT_SECRET);
+        params.append('grant_type', 'client_credentials');
+
+        const tokenResponse = await axios.post(tokenUrl, params, {
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
         });
 
-        const items = response.data.value || [];
+        const accessToken = tokenResponse.data.access_token;
 
-        // 🚀 EL MAPEO ORIGINAL REPARADO: Aquí procesamos la lista
+        // 3. Consulta a la lista de SharePoint
+        const graphUrl = `https://graph.microsoft.com/v1.0/sites/${process.env.SHAREPOINT_SITE_ID}/lists/${process.env.SHAREPOINT_LIST_ID}/items?expand=fields`;
+        
+        const graphResponse = await axios.get(graphUrl, {
+            headers: { Authorization: `Bearer ${accessToken}` }
+        });
+
+        const items = graphResponse.data.value || [];
+
+        // 4. Mapeo limpio de los datos hacia tu index.html
         const eventosProcesados = items.map(item => {
             return {
                 title: item.fields.Title || item.fields.title || "Evento sin título",
                 sala: item.fields.Sala || item.fields.sala || "Por definir",
-                casillaTiempo: item.fields.Fecha || item.fields.casillaTiempo || null,
+                casillaTiempo: item.fields.Fecha || item.fields.casillaTiempo || item.fields.EventDate || null,
                 
-                // Aquí agarra la columna tipo Elección sin que se vaya a negro
+                // 🚀 El parche blindado para el Destinatario
                 Destinatario: item.fields.Destinatario || item.fields.destinatario || null
             };
         });
 
-        // Forzamos a Vercel a no guardar caché vieja
+        // Desactivar caché para actualización en tiempo real
         res.setHeader('Cache-Control', 'no-shadow, no-store, must-revalidate');
         res.status(200).json(eventosProcesados);
 
