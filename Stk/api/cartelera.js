@@ -1,66 +1,71 @@
-       const tokenData = await tokenRes.json();
-        const accessToken = tokenData.access_token;
+import { ConfidentialClientApplication } from "@azure/msal-node";
+import axios from "axios";
 
-        const graphUrl = `https://graph.microsoft.com/v1.0/sites/ugmchile.sharepoint.com:/sites/Calen:/lists/lista%20calen/items?expand=fields&$top=100`;
-        // Consultamos la lista de SharePoint
-        const graphUrl = `https://graph.microsoft.com/v1.0/sites/ugmchile.sharepoint.com:/sites/Calen:/lists/lista%20calen/items?expand=fields&$top=5`;
-        const graphRes = await fetch(graphUrl, {
-            method: 'GET',
-            headers: { 'Authorization': `Bearer ${accessToken}`, 'Accept': 'application/json' }
-@@ -36,48 +37,15 @@ module.exports = async function handler(req, res) {
-        const graphData = await graphRes.json();
-        const rawItems = graphData.value || [];
+// 🛠️ CONFIGURACIÓN DE CREDENCIALES (Usa las variables de entorno de tu Vercel)
+const msalConfig = {
+    auth: {
+        clientId: process.env.CLIENT_ID || process.env.NEXT_PUBLIC_CLIENT_ID,
+        authority: `https://login.microsoftonline.com/${process.env.TENANT_ID}`,
+        clientSecret: process.env.CLIENT_SECRET,
+    }
+};
 
-        const eventosNormalizados = rawItems.map(item => {
-            const f = item.fields || {};
-            
-            let salaReal = f.Sala || f.Ubicacion || f.Location || f.U_G_M_Sala || "Por definir";
-            if (salaReal === "Por definir") {
-                for (let key in f) {
-                    if (typeof f[key] === 'string' && (f[key].includes("Auditorio") || f[key].includes("Gimnasio") || f[key].includes("Sala") || f[key].includes("SALÓN"))) {
-                        salaReal = f[key];
-                        break;
-                    }
-                }
+const tokenRequest = {
+    scopes: ["https://graph.microsoft.com/.default"],
+};
+
+const cca = new ConfidentialClientApplication(msalConfig);
+
+async function getAccessToken() {
+    const response = await cca.acquireTokenByClientCredential(tokenRequest);
+    return response.accessToken;
+}
+
+export default async function handler(req, res) {
+    // Cabeceras CORS obligatorias para la tele de la U
+    res.setHeader('Access-Control-Allow-Credentials', true);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
+
+    if (req.method === 'OPTIONS') {
+        res.status(200).end();
+        return;
+    }
+
+    try {
+        const token = await getAccessToken();
+        
+        // Llamado limpio a Microsoft Graph usando tus variables de entorno del Site y la Lista
+        const url = `https://graph.microsoft.com/v1.0/sites/${process.env.SHAREPOINT_SITE_ID}/lists/${process.env.SHAREPOINT_LIST_ID}/items?expand=fields`;
+        
+        const response = await axios.get(url, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+                Accept: "application/json",
             }
-        // HACK DE INSPECCIÓN: Mandamos las entrañas completas del primer ítem para pillar los campos ocultos
-        if (rawItems.length > 0) {
-            return res.status(200).json({
-                _INSPECCION_RAIZ: Object.keys(rawItems[0]),
-                _INSPECCION_FIELDS: rawItems[0].fields || {}
-            });
-        }
+        });
 
-            // BUSCADOR EN DETALLE DE LA FECHA REAL DEL EVENTO
-            // Priorizamos las propiedades nativas de eventos de SharePoint que oculta Graph
-            let casillaTiempo = f.EventDate || f.OData__StartDate || f.StartDate || f.EventDateTime || f.Fecha || "";
-            
-            // Si no encontró ninguna de las anteriores, buscamos cualquier llave que tenga "Start" o "Date" pero ignorando los metadatos de modificación del archivo
-            if (!casillaTiempo) {
-                for (let key in f) {
-                    if (key.toLowerCase().includes('start') || (key.toLowerCase().includes('date') && !key.toLowerCase().includes('modify') && !key.toLowerCase().includes('author'))) {
-                        if (f[key] && typeof f[key] === 'string' && f[key].includes('T')) {
-                            casillaTiempo = f[key];
-                            break;
-                        }
-                    }
-                }
-            }
+        const items = response.data.value || [];
 
-            // Caída de emergencia total si de verdad la lista no tiene columnas de calendario
-            if (!casillaTiempo) {
-                casillaTiempo = item.createdDateTime || f.Modified || "";
-            }
-
+        // 🚀 EL MAPEO ORIGINAL REPARADO: Aquí procesamos la lista
+        const eventosProcesados = items.map(item => {
             return {
-                title: f.Title || f.LinkTitle || "Evento sin título",
-                sala: salaReal,
-                casillaTiempo: casillaTiempo
+                title: item.fields.Title || item.fields.title || "Evento sin título",
+                sala: item.fields.Sala || item.fields.sala || "Por definir",
+                casillaTiempo: item.fields.Fecha || item.fields.casillaTiempo || null,
+                
+                // Aquí agarra la columna tipo Elección sin que se vaya a negro
+                Destinatario: item.fields.Destinatario || item.fields.destinatario || null
             };
         });
 
-        return res.status(200).json(eventosNormalizados);
-        return res.status(200).json({ mensaje: "Lista vacía" });
+        // Forzamos a Vercel a no guardar caché vieja
+        res.setHeader('Cache-Control', 'no-shadow, no-store, must-revalidate');
+        res.status(200).json(eventosProcesados);
 
     } catch (error) {
-        return res.status(500).json({ error: true, mensaje: error.message });
+        console.error("Error en cartelera API:", error.response ? error.response.data : error.message);
+        res.status(500).json({ error: "Error de conexión con SharePoint", detalle: error.message });
+    }
+}
