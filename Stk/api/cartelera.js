@@ -1,5 +1,5 @@
 module.exports = async (req, res) => {
-    // Cabeceras CORS limpias para la tele
+    // Cabeceras CORS obligatorias para el visor de la tele
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
@@ -11,7 +11,7 @@ module.exports = async (req, res) => {
     }
 
     try {
-        // 1. Autenticación limpia con Azure para sacar el Token
+        // 1. Obtener Token de Acceso desde Azure Entra ID
         const tokenUrl = `https://login.microsoftonline.com/${process.env.TENANT_ID}/oauth2/v2.0/token`;
         
         const bodyParams = new URLSearchParams();
@@ -30,10 +30,10 @@ module.exports = async (req, res) => {
         const accessToken = tokenData.access_token;
 
         if (!accessToken) {
-            return res.status(500).json({ error: "Error de autenticación con Azure" });
+            return res.status(500).json({ error: "No se pudo obtener el token de Azure" });
         }
 
-        // 2. 🚀 URL EN BRUTO CORREGIDA: Traemos absolutamente todos los "fields" sin filtros que rompan la respuesta
+        // 2. 🚀 EL ENDPOINT REAL: Pegarle directo a las filas de la lista mapeadas en bruto
         const graphUrl = `https://graph.microsoft.com/v1.0/sites/${process.env.SHAREPOINT_SITE_ID}/lists/${process.env.SHAREPOINT_LIST_ID}/items?expand=fields`;
         
         const graphResponse = await fetch(graphUrl, {
@@ -44,13 +44,14 @@ module.exports = async (req, res) => {
         const graphData = await graphResponse.json();
         const items = graphData.value || [];
 
-        // 3. Mapeo ultra-tolerante para que el JSON arme las llaves fijas que busca tu index.html
+        // 3. El mapeo definitivo y tolerante: Rescata la información directo de fields
+        // entregando los nombres exactos en minúscula que tu visor procesaba originalmente.
         const eventosProcesados = items.map(item => {
             const f = item.fields || {};
             return {
-                title: f.Title || f.title || "Evento sin título",
-                sala: f.Sala || f.sala || "Por definir",
-                fecha: f.Fecha || f.fecha || f.casillaTiempo || f.EventDate || ""
+                title: f.Title || f.title || item.title || "Evento sin título",
+                sala: f.Sala || f.sala || item.sala || "Por definir",
+                fecha: f.Fecha || f.fecha || f.EventDate || item.fecha || ""
             };
         });
 
@@ -58,7 +59,7 @@ module.exports = async (req, res) => {
         res.status(200).json(eventosProcesados);
 
     } catch (error) {
-        console.error("Error en el mapeo de la API:", error);
-        res.status(500).json({ error: "Error interno apuntando a SharePoint", detalle: error.message });
+        console.error("Error apuntando a SharePoint:", error);
+        res.status(500).json({ error: "Error de conexión interna", detalle: error.message });
     }
 };
