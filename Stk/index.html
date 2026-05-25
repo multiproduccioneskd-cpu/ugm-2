@@ -3,197 +3,327 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cartelera de Eventos UGM</title>
+    <title>Terminal de Control Aéreo - Flota Tomy</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0b192f; color: #ffffff; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
-        header { background-color: #002060; padding: 20px 0px; display: flex; align-items: center; border-bottom: 5px solid #0056b3; width: 100%; height: 110px; position: relative; }
-        header h1 { position: absolute; left: 40px; top: 50%; transform: translateY(-50%); font-size: 2.8rem; text-transform: uppercase; letter-spacing: 1px; font-weight: 800; white-space: nowrap; z-index: 2; }
-        .logo-centro-wrapper { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; align-items: center; justify-content: center; z-index: 1; }
-        .logo-centro { height: 65px; width: auto; }
-        #right-header { position: absolute; right: 40px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; align-items: flex-end; gap: 2px; z-index: 2; }
-        #current-date { font-size: 1.6rem; color: #ffc000; font-weight: bold; text-transform: capitalize; }
-        #current-time { font-size: 2.5rem; font-weight: bold; color: #ffffff; line-height: 1; }
-        main { flex: 1; padding: 30px; position: relative; overflow: hidden; }
-        #scroll-wrapper { height: 100%; overflow-y: hidden; position: relative; }
-        .container { display: flex; flex-direction: column; gap: 20px; position: absolute; top: 0; left: 0; width: 100%; opacity: 0; transition: transform 0.3s linear, opacity 0.6s ease-in-out; }
-        .container.fade-in { opacity: 1; }
-        .event-card { background-color: #172a45; border-left: 12px solid #0056b3; border-radius: 12px; padding: 30px 45px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 10px 20px rgba(0,0,0,0.4); }
-        .event-info { display: flex; flex-direction: column; gap: 12px; flex: 1; }
-        .event-title { font-size: 2.6rem; font-weight: bold; color: #ffffff; line-height: 1.2; }
-        .event-badges { display: flex; gap: 15px; align-items: center; }
-        .event-room { font-size: 1.6rem; color: #000000; font-weight: bold; background-color: #ffa500; padding: 6px 20px; border-radius: 8px; text-transform: uppercase; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
-        .event-destinatario { font-size: 1.6rem; color: #ffffff; font-weight: bold; padding: 6px 20px; border-radius: 8px; text-transform: uppercase; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
-        .event-time { font-size: 3.2rem; font-weight: 800; color: #38b6ff; background-color: #0b192f; padding: 15px 35px; border-radius: 10px; border: 3px solid #0056b3; white-space: nowrap; text-align: center; display: flex; flex-direction: column; justify-content: center; min-width: 210px; }
-        .event-day-label { font-size: 1.2rem; color: #8892b0; text-transform: uppercase; font-weight: bold; margin-bottom: 4px; letter-spacing: 1px; }
-        .no-events { font-size: 2.8rem; text-align: center; color: #8892b0; margin-top: 15vh; width: 100%; }
+        :root {
+            --bg-color: #080b11;
+            --panel-color: #121824;
+            --text-main: #ffffff;
+            --airport-yellow: #ffcc00;
+            --airport-green: #00ff66;
+            --airport-cyan: #00cccc;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Courier New', Courier, monospace;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow: hidden;
+            height: 100vh;
+            box-sizing: border-box;
+        }
+
+        header {
+            width: 100%;
+            max-width: 1200px;
+            text-align: center;
+            border-bottom: 3px double var(--airport-yellow);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            flex-shrink: 0;
+        }
+
+        header h1 {
+            color: var(--airport-yellow);
+            margin: 0;
+            font-size: 2.3rem;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        .subtitle {
+            color: #888;
+            font-size: 1rem;
+            margin-top: 5px;
+            letter-spacing: 1px;
+        }
+
+        .legend {
+            color: #aaa;
+            font-size: 0.85rem;
+            margin-top: 5px;
+        }
+
+        .clock {
+            color: #00ffcc;
+            font-size: 1.3rem;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+
+        .table-container {
+            width: 100%;
+            max-width: 1200px;
+            overflow-y: auto;
+            flex-grow: 1;
+            margin-bottom: 20px;
+            scrollbar-width: none;
+        }
+
+        .table-container::-webkit-scrollbar {
+            display: none;
+        }
+
+        .airport-board {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: #000;
+            box-shadow: 0 0 25px rgba(0,0,0,0.8);
+        }
+
+        .airport-board th {
+            background-color: var(--panel-color);
+            color: #778899;
+            text-align: left;
+            padding: 12px 15px;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            border-bottom: 2px solid #333;
+            letter-spacing: 1px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .airport-board tr {
+            border-bottom: 1px solid #1a1a1a;
+            transition: all 0.5s ease-out;
+        }
+
+        .airport-board td {
+            padding: 16px 15px;
+            font-size: 1.05rem;
+            font-weight: bold;
+            letter-spacing: 1px;
+            vertical-align: middle;
+        }
+
+        .col-time { color: var(--airport-yellow); font-weight: bold; }
+        .col-ac { color: #00bfff; } 
+        .col-route { color: var(--airport-cyan); font-weight: bold; }
+        .col-mission { color: #ffffff; text-transform: uppercase; }
+        .col-status { text-align: center; }
+
+        .liv-boeing { color: #3385ff; }
+        .liv-airbus { color: #00ffcc; }
+        .liv-latam { color: #ff3344; }
+        .liv-dhl { color: #ffcc00; background-color: #d40000; padding: 2px 6px; border-radius: 3px; }
+        .liv-ups { color: #ffbc42; }
+        .liv-fedex { color: #ff6600; }
+        .liv-maersk { color: #70d6ff; }
+        .liv-usaf { color: #95a5a6; }
+        .liv-fire { color: #ff4500; }
+
+        .status-boarding { color: #000; background-color: var(--airport-green); padding: 4px 8px; border-radius: 3px; font-size: 0.85rem; }
+        .status-standby { color: #fff; background-color: #444; padding: 4px 8px; border-radius: 3px; font-size: 0.85rem; }
+        .status-alert { color: #fff; background-color: #ff0000; padding: 4px 8px; border-radius: 3px; font-size: 0.85rem; animation: blink 1s infinite; }
+        .status-departed { color: #000; background-color: var(--airport-yellow); padding: 4px 8px; border-radius: 3px; font-size: 0.85rem; }
+
+        /* Animación para filas nuevas */
+        .row-new {
+            animation: fadeInRow 1s ease-in-out;
+        }
+
+        @keyframes fadeInRow {
+            0% { background-color: #1a3322; opacity: 0; }
+            100% { background-color: transparent; opacity: 1; }
+        }
+
+        @keyframes blink { 50% { opacity: 0; } }
     </style>
 </head>
 <body>
 
     <header>
-        <h1 id="main-title">EVENTOS DE LA SEMANA</h1>
-        <div class="logo-centro-wrapper">
-            <img id="logo-medio" src="logo-blanco-celeste.png" alt="Logo Central" class="logo-centro">
-        </div>
-        <div id="right-header">
-            <div id="current-date">Cargando fecha...</div>
-            <div id="current-time">00:00:00</div>
-        </div>
+        <h1>HANGAR CONTROL TERMINAL</h1>
+        <div class="subtitle">SISTEMA DE ITINERARIO DINÁMICO EN TIEMPO REAL</div>
+        <div class="legend">INDICADORES OACI: [SLIV] AEROPUERTO LIVING | [SKIB] AEROPUERTO PIEZA</div>
+        <div class="clock" id="live-clock">ZULU TIME: --:--:--</div>
     </header>
 
-    <main>
-        <div id="scroll-wrapper">
-            <div id="events-container" class="container">
-                <div class="no-events">Conectando con la cartelera...</div>
-            </div>
-        </div>
-    </main>
+    <div class="table-container" id="scroll-container">
+        <table class="airport-board">
+            <thead>
+                <tr>
+                    <th style="width: 12%" class="col-time">DEP TIME</th>
+                    <th style="width: 10%">AVIÓN</th>
+                    <th style="width: 20%">LIVERY / COMPAÑÍA</th>
+                    <th style="width: 15%">RUTA</th>
+                    <th style="width: 30%">CONTENIDO / MISIÓN DE ESTRENO</th>
+                    <th style="width: 13%; text-align: center;">ESTADO</th>
+                </tr>
+            </thead>
+            <tbody id="board-body">
+                </tbody>
+        </table>
+    </div>
 
     <script>
-        let scrollInterval = null;
-        let rotationTimeout = null;
+        // Flota inicial del Tomy con sus aeropuertos base iniciales
+        let flota = [
+            { ac: "B38M", livery: "Boeing Livery", class: "liv-boeing", mission: "Película de la Tarde: (Escribir aquí)", orig: "SKIB", dest: "SLIV" },
+            { ac: "A20N", livery: "Airbus House", class: "liv-airbus", mission: "Maratón de Dibujos Animados", orig: "SLIV", dest: "SKIB" },
+            { ac: "B763", livery: "LATAM Airlines", class: "liv-latam", mission: "Estreno Especial de Fin de Semana", orig: "SKIB", dest: "SLIV" },
+            { ac: "B757F", livery: "DHL Cargo", class: "liv-dhl", mission: "Carga de Capítulos Nuevos: (Escribir Serie)", isDHL: true, orig: "SLIV", dest: "SKIB" },
+            { ac: "B744F", livery: "UPS Airlines", class: "liv-ups", mission: "Carga Pesada: Película de Acción", orig: "SKIB", dest: "SLIV" },
+            { ac: "A388F", livery: "FedEx Express", class: "liv-fedex", mission: "Envío Urgente: Bloque de Series", orig: "SLIV", dest: "SKIB" },
+            { ac: "A350F", livery: "Maersk Air Cargo", class: "liv-maersk", mission: "Logística de Estreno: Documental Espacial", orig: "SKIB", dest: "SLIV" },
+            { ac: "CL415", livery: "FIRE CONTROL", class: "liv-fire", mission: "¡Misión de Emergencia Extrema!", isFire: true, orig: "SLIV", dest: "SKIB" },
+            { ac: "F22", livery: "USAF Air Force", class: "liv-usaf", mission: "Misión Secreta: Película de Suspenso", isMil: true, orig: "SKIB", dest: "SLIV" },
+            { ac: "B52H", livery: "USAF Bomber", class: "liv-usaf", mission: "Bombardeo de Estrenos de Ciencia Ficción", isMilBomber: true, orig: "SLIV", dest: "SKIB" }
+        ];
+
+        const estadosNormales = ["EN VUELO", "EN PANTALLA", "PROGRAMADO", "EN RAMPA", "EN ESPERA"];
+
+        function formatHHMM(date) {
+            return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+        }
+
+        // Inicializar flota con un intervalo exacto de 5 minutos entre cada avión
+        function inicializarFlota() {
+            const ahora = new Date();
+            flota.forEach((avion, index) => {
+                const tiempoVuelo = new Date(ahora.getTime());
+                // El primer avión sale ahora, el segundo en 5 min, el tercero en 10 min, etc.
+                tiempoVuelo.setMinutes(ahora.getMinutes() + (index * 5)); 
+                
+                avion.targetTime = tiempoVuelo;
+                avion.statusText = obtenerEstadoInicial(avion, tiempoVuelo, ahora);
+                avion.enProcesoDespegue = false;
+            });
+            ordenarCartelera();
+            renderizarPanel();
+        }
+
+        function obtenerEstadoInicial(avion, targetTime, ahora) {
+            if (targetTime <= ahora) return "DECOLAJE";
+            if (avion.isFire) return "EMERGENCIA";
+            if (avion.isMil) return "PATRULLANDO";
+            if (avion.isMilBomber) return "ALERTA MAX";
+            return "PROGRAMADO"; // Estado limpio inicial para mantener el orden visual
+        }
+
+        function ordenarCartelera() {
+            flota.sort((a, b) => a.targetTime - b.targetTime);
+        }
+
+        function renderizarPanel() {
+            const tbody = document.getElementById('board-body');
+            if(!tbody) return;
+            tbody.innerHTML = '';
+
+            flota.forEach((avion) => {
+                const tr = document.createElement('tr');
+                
+                let claseEstado = "status-standby";
+                if (avion.statusText === "EMERGENCIA" || avion.statusText === "ALERTA MAX") claseEstado = "status-alert";
+                else if (avion.statusText === "EN VUELO" || avion.statusText === "PATRULLANDO" || avion.statusText === "EN PANTALLA") claseEstado = "status-boarding";
+                else if (avion.statusText === "DECOLAJE" || avion.statusText === "DESCARGANDO") claseEstado = "status-departed";
+
+                const liveryTD = avion.isDHL 
+                    ? `<td><span class="${avion.class}">${avion.livery}</span></td>` 
+                    : `<td class="${avion.class}">${avion.livery}</td>`;
+
+                tr.innerHTML = `
+                    <td class="col-time">${formatHHMM(avion.targetTime)}</td>
+                    <td class="col-ac">${avion.ac}</td>
+                    ${liveryTD}
+                    <td class="col-route">${avion.orig} ➔ ${avion.dest}</td>
+                    <td class="col-mission">${avion.mission}</td>
+                    <td class="col-status"><span class="${claseEstado}">${avion.statusText}</span></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Lógica de despegue y rotación exacta cada 5 minutos
+        function chequearHorariosVuelos() {
+            const ahora = new Date();
+            let huboCambios = false;
+
+            flota.forEach((avion) => {
+                if (ahora >= avion.targetTime && !avion.enProcesoDespegue) {
+                    avion.statusText = "DECOLAJE";
+                    avion.enProcesoDespegue = true;
+                    huboCambios = true;
+                    
+                    setTimeout(() => {
+                        // 1. Invertir aeropuertos de origen y destino
+                        const viejoOrig = avion.orig;
+                        avion.orig = avion.dest;
+                        avion.dest = viejoOrig;
+
+                        // 2. Reprogramar sumando exactamente 50 minutos (10 aviones x 5 minutos)
+                        // Así se sitúa de forma matemática exactamente al final de la cola manteniendo la cadena
+                        const nuevaHora = new Date(avion.targetTime.getTime());
+                        nuevaHora.setMinutes(nuevaHora.getMinutes() + 50);
+                        avion.targetTime = nuevaHora;
+
+                        // 3. Devolver su estado correspondiente para la ruta de regreso
+                        if (avion.isFire) avion.statusText = "EMERGENCIA";
+                        else if (avion.isMil) avion.statusText = "PATRULLANDO";
+                        else if (avion.isMilBomber) avion.statusText = "ALERTA MAX";
+                        else if (avion.isDHL) avion.statusText = "DESCARGANDO";
+                        else avion.statusText = estadosNormales[Math.floor(Math.random() * estadosNormales.length)];
+
+                        avion.enProcesoDespegue = false;
+
+                        // 4. Reordenar cartelera para enviarlo abajo del todo y actualizar pantalla
+                        ordenarCartelera();
+                        renderizarPanel();
+                    }, 6000); // 6 segundos en "DECOLAJE" antes de pasar al fondo
+                }
+            });
+
+            if (huboCambios) {
+                renderizarPanel();
+            }
+        }
 
         function updateClock() {
-            const ahora = new Date();
-            document.getElementById('current-time').innerText = ahora.toLocaleTimeString('es-CL', { hour12: false });
-            const opciones = { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Santiago' };
-            let fechaTexto = ahora.toLocaleDateString('es-CL', opciones);
-            document.getElementById('current-date').innerText = fechaTexto.charAt(0).toUpperCase() + fechaTexto.slice(1);
+            const now = new Date();
+            const clockEl = document.getElementById('live-clock');
+            if(clockEl) clockEl.innerText = `CLOCK TIME: ${now.toLocaleTimeString()}`;
+            
+            chequearHorariosVuelos();
         }
+
+        function iniciarScrollAutomatico() {
+            const container = document.getElementById('scroll-container');
+            let scrollSpeed = 0.8;
+            
+            function step() {
+                if (!container) return;
+                container.scrollTop += scrollSpeed;
+                if (container.scrollTop + container.clientHeight >= container.scrollHeight - 2) {
+                    setTimeout(() => { container.scrollTop = 0; }, 2500);
+                }
+                requestAnimationFrame(step);
+            }
+            requestAnimationFrame(step);
+        }
+
+        // Inicialización global
         setInterval(updateClock, 1000);
         updateClock();
-
-        // Función de asignación con salvavidas estricto ante valores nulos
-        function asignarColoresMapeados(titulo, f) {
-            let textoColumna = "";
-            
-            if (f) {
-                // Buscamos de manera segura cualquier propiedad que se parezca
-                let rawDestino = f.Destinatario || f.destinatario || f.OData__Destinatario || f.Destinatarios || null;
-                if (rawDestino) {
-                    if (typeof rawDestino === 'object') {
-                        textoColumna = rawDestino.Value || rawDestino.value || "";
-                    } else {
-                        textoColumna = String(rawDestino);
-                    }
-                }
-            }
-
-            let t = textoColumna.toLowerCase().trim();
-
-            if (t.includes('administrativo')) return { texto: 'ADMINISTRATIVOS', color: '#6f42c1' };
-            if (t.includes('escuela')) return { texto: 'ESCUELAS', color: '#198754' };
-            if (t.includes('comunidad')) return { texto: 'COMUNIDAD UGM', color: '#00a896' };
-
-            // Caída por defecto si el campo está vacío: lee palabras clave del título
-            const tObj = String(titulo).toLowerCase();
-            if (tObj.includes('taller') || tObj.includes('integración') || tObj.includes('reunión') || tObj.includes('tricel')) {
-                return { texto: 'ADMINISTRATIVOS', color: '#6f42c1' }; 
-            }
-            if (tObj.includes('escuela') || tObj.includes('charla') || tObj.includes('sesión')) {
-                return { texto: 'ESCUELAS', color: '#198754' }; 
-            }
-            return { texto: 'COMUNIDAD UGM', color: '#00a896' }; 
-        }
-
-        function iniciarManejoPantalla() {
-            if (scrollInterval) clearInterval(scrollInterval);
-            if (rotationTimeout) clearTimeout(rotationTimeout);
-            
-            const wrapper = document.getElementById('scroll-wrapper');
-            const container = document.getElementById('events-container');
-            container.style.transform = `translateY(0px)`;
-
-            if (container.clientHeight <= wrapper.clientHeight) {
-                rotationTimeout = setTimeout(() => { cargarCartelera(); }, 15000);
-            } else {
-                let currentTop = 0;
-                scrollInterval = setInterval(() => {
-                    if (container.clientHeight > wrapper.clientHeight) {
-                        currentTop -= 1;
-                        if (Math.abs(currentTop) >= (container.clientHeight - wrapper.clientHeight + 60)) {
-                            clearInterval(scrollInterval);
-                            rotationTimeout = setTimeout(() => { cargarCartelera(); }, 4000);
-                        } else {
-                            container.style.transform = `translateY(${currentTop}px)`;
-                        }
-                    }
-                }, 40);
-            }
-        }
-
-        async function cargarCartelera() {
-            const container = document.getElementById('events-container');
-            
-            try {
-                const response = await fetch(`https://ugm-2.vercel.app/api/cartelera?nocache=${Date.now()}`);
-                if (!response.ok) throw new Error('Error de respuesta API');
-                
-                const eventosRaw = await response.json();
-                
-                if (!eventosRaw || eventosRaw.length === 0 || eventosRaw.error) {
-                    container.innerHTML = '<div class="no-events">No hay eventos registrados en SharePoint</div>';
-                    container.classList.add('fade-in');
-                    setTimeout(cargarCartelera, 10000);
-                    return;
-                }
-
-                container.innerHTML = '';
-                
-                eventosRaw.forEach(ev => {
-                    // Try-Catch interno: Si una tarjeta falla, NO congela la pantalla completa
-                    try {
-                        let horaTexto = "--:--";
-                        let etiquetaDia = "Evento";
-
-                        if (ev.casillaTiempo) {
-                            const dateObjeto = new Date(ev.casillaTiempo);
-                            if (!isNaN(dateObjeto.getTime())) {
-                                horaTexto = dateObjeto.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Santiago' });
-                                try {
-                                    const opcionesDia = { weekday: 'short', day: 'numeric', timeZone: 'America/Santiago' };
-                                    let diaTxt = dateObjeto.toLocaleDateString('es-CL', opcionesDia).replace('.', '');
-                                    etiquetaDia = diaTxt.charAt(0).toUpperCase() + diaTxt.slice(1);
-                                } catch(e) { etiquetaDia = "Próximo"; }
-                            }
-                        }
-
-                        const metaPublico = asignarColoresMapeados(ev.title, ev.rawFields);
-
-                        const card = document.createElement('div');
-                        card.className = 'event-card';
-                        card.innerHTML = `
-                            <div class="event-info">
-                                <div class="event-title">${ev.title}</div>
-                                <div class="event-badges">
-                                    <div class="event-room">${ev.sala}</div>
-                                    <div class="event-destinatario" style="background-color: ${metaPublico.color};">${metaPublico.texto}</div>
-                                </div>
-                            </div>
-                            <div class="event-time">
-                                <div class="event-day-label">${ev.etiquetaDia}</div>
-                                <div>${horaTexto}</div>
-                            </div>
-                        `;
-                        container.appendChild(card);
-                    } catch (errCard) {
-                        console.error("Error renderizando tarjeta individual:", errCard);
-                    }
-                });
-
-                container.classList.add('fade-in');
-                setTimeout(iniciarManejoPantalla, 400);
-
-            } catch (error) {
-                console.error("Error general en carga:", error);
-                container.innerHTML = '<div class="no-events">⚠️ Conectando con la cartelera UGM...</div>';
-                container.classList.add('fade-in');
-                setTimeout(cargarCartelera, 10000);
-            }
-        }
-
-        window.onload = () => { cargarCartelera(); };
+        inicializarFlota();
+        iniciarScrollAutomatico();
     </script>
+
 </body>
 </html>
