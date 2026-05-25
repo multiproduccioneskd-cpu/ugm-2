@@ -1,5 +1,5 @@
 module.exports = async (req, res) => {
-    // Cabeceras CORS obligatorias para el visor de la tele
+    // Cabeceras CORS obligatorias para la tele
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
@@ -11,12 +11,13 @@ module.exports = async (req, res) => {
     }
 
     try {
-        // 1. Obtener Token de Acceso desde Azure Entra ID
+        // 1. Obtener Token de Acceso apuntando al recurso nativo de SharePoint
         const tokenUrl = `https://login.microsoftonline.com/${process.env.TENANT_ID}/oauth2/v2.0/token`;
         
         const bodyParams = new URLSearchParams();
         bodyParams.append('client_id', process.env.CLIENT_ID);
-        bodyParams.append('scope', 'https://graph.microsoft.com/.default');
+        // Usamos el scope heredado clásico de SharePoint para que dé los permisos correctos
+        bodyParams.append('scope', 'https://ugmchile.sharepoint.com/.default');
         bodyParams.append('client_secret', process.env.CLIENT_SECRET);
         bodyParams.append('grant_type', 'client_credentials');
 
@@ -30,28 +31,32 @@ module.exports = async (req, res) => {
         const accessToken = tokenData.access_token;
 
         if (!accessToken) {
-            return res.status(500).json({ error: "No se pudo obtener el token de Azure" });
+            return res.status(500).json({ error: "No se pudo obtener el token de acceso" });
         }
 
-        // 2. 🚀 EL ENDPOINT REAL: Pegarle directo a las filas de la lista mapeadas en bruto
-        const graphUrl = `https://graph.microsoft.com/v1.0/sites/${process.env.SHAREPOINT_SITE_ID}/lists/${process.env.SHAREPOINT_LIST_ID}/items?expand=fields`;
+        // 2. 🚀 El link real de tu captura: Pegarle directo a la API interna de SharePoint
+        const sharepointUrl = "https://ugmchile.sharepoint.com/sites/Cartelera/_api/web/lists/getbytitle('Eventos')/items";
         
-        const graphResponse = await fetch(graphUrl, {
+        const spResponse = await fetch(sharepointUrl, {
             method: 'GET',
-            headers: { 'Authorization': `Bearer ${accessToken}` }
+            headers: { 
+                'Authorization': `Bearer ${accessToken}`,
+                'Accept': 'application/json;odata=verbose' // Obligatorio para que SharePoint suelte el JSON estructurado
+            }
         });
 
-        const graphData = await graphResponse.json();
-        const items = graphData.value || [];
+        const spData = await spResponse.json();
+        
+        // La API nativa de SharePoint guarda los ítems en d.results
+        const items = (spData.d && spData.d.results) ? spData.d.results : [];
 
-        // 3. El mapeo definitivo y tolerante: Rescata la información directo de fields
-        // entregando los nombres exactos en minúscula que tu visor procesaba originalmente.
+        // 3. Mapeo limpio devolviendo las propiedades en minúscula que necesita tu index.html
+        // Atajamos los nombres con OData_ por si SharePoint los renombró internamente
         const eventosProcesados = items.map(item => {
-            const f = item.fields || {};
             return {
-                title: f.Title || f.title || item.title || "Evento sin título",
-                sala: f.Sala || f.sala || item.sala || "Por definir",
-                fecha: f.Fecha || f.fecha || f.EventDate || item.fecha || ""
+                title: item.Title || item.title || "Evento sin título",
+                sala: item.Sala || item.sala || item.OData__Sala || "Por definir",
+                fecha: item.Fecha || item.fecha || item.OData__Fecha || item.EventDate || ""
             };
         });
 
@@ -59,7 +64,7 @@ module.exports = async (req, res) => {
         res.status(200).json(eventosProcesados);
 
     } catch (error) {
-        console.error("Error apuntando a SharePoint:", error);
-        res.status(500).json({ error: "Error de conexión interna", detalle: error.message });
+        console.error("Error en la API de SharePoint:", error);
+        res.status(500).json({ error: "Error de conexión con la lista de SharePoint", detalle: error.message });
     }
 };
