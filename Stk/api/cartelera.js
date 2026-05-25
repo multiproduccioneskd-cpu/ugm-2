@@ -1,5 +1,5 @@
 module.exports = async (req, res) => {
-    // Cabeceras CORS esenciales para la pantalla de la tele
+    // Cabeceras CORS obligatorias para el visor de la tele
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
@@ -16,7 +16,7 @@ module.exports = async (req, res) => {
         
         const bodyParams = new URLSearchParams();
         bodyParams.append('client_id', process.env.CLIENT_ID);
-        bodyParams.append('scope', 'https://ugmchile.sharepoint.com/.default');
+        bodyParams.append('scope', 'https://graph.microsoft.com/.default'); // Scope oficial de Graph API
         bodyParams.append('client_secret', process.env.CLIENT_SECRET);
         bodyParams.append('grant_type', 'client_credentials');
 
@@ -30,40 +30,36 @@ module.exports = async (req, res) => {
         const accessToken = tokenData.access_token;
 
         if (!accessToken) {
-            return res.status(500).json({ error: "No se pudo obtener el token de Azure" });
+            return res.status(500).json({ error: "No se pudo obtener el Token desde Azure" });
         }
 
-        // 2. 🚀 URL de tu captura conectando directo a SharePoint
-        const sharepointUrl = "https://ugmchile.sharepoint.com/sites/Cartelera/_api/web/lists/getbytitle('Eventos')/items";
+        // 2. 🚀 LA URL OFICIAL DE GRAPH: Trae el contenedor fields limpio en formato JSON garantizado
+        const graphUrl = `https://graph.microsoft.com/v1.0/sites/${process.env.SHAREPOINT_SITE_ID}/lists/${process.env.SHAREPOINT_LIST_ID}/items?expand=fields`;
         
-        const spResponse = await fetch(sharepointUrl, {
+        const graphResponse = await fetch(graphUrl, {
             method: 'GET',
-            headers: { 
-                'Authorization': `Bearer ${accessToken}`,
-                'Accept': 'application/json;odata=verbose' // Clave para que devuelva la estructura clásica d.results
-            }
+            headers: { 'Authorization': `Bearer ${accessToken}` }
         });
 
-        const spData = await spResponse.json();
-        
-        // Validamos la ruta nativa de datos de SharePoint
-        const items = (spData.d && spData.d.results) ? spData.d.results : (spData.value || []);
+        const graphData = await graphResponse.json();
+        const items = graphData.value || [];
 
-        // 3. Mapeo blindado: Busca las columnas en minúsculas, mayúsculas y formato OData
+        // 3. Mapeo clásico y tolerante que alimenta directo a tu index.html original
         const eventosProcesados = items.map(item => {
             const f = item.fields || {};
             return {
-                title: item.Title || item.title || f.Title || f.title || "Evento sin título",
-                sala: item.Sala || item.OData__Sala || item.sala || f.Sala || f.sala || "Por definir",
-                fecha: item.Fecha || item.OData__Fecha || item.fecha || item.EventDate || f.Fecha || ""
+                title: f.Title || f.title || "Evento sin título",
+                sala: f.Sala || f.sala || "Por definir",
+                fecha: f.Fecha || f.fecha || f.EventDate || ""
             };
         });
 
+        // Respuesta limpia sin caché vieja para actualización inmediata
         res.setHeader('Cache-Control', 'no-shadow, no-store, must-revalidate');
         res.status(200).json(eventosProcesados);
 
     } catch (error) {
-        console.error("Error en la API de SharePoint:", error);
-        res.status(500).json({ error: "Error de conexión con la lista de SharePoint", detalle: error.message });
+        console.error("Error en la cascada de la API:", error.message);
+        res.status(500).json({ error: "Error de conexión con Microsoft Graph", detalle: error.message });
     }
 };
