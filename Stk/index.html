@@ -19,7 +19,6 @@
             display: flex;
             flex-direction: column;
         }
-        
         header {
             background-color: #002060;
             padding: 20px 0px; 
@@ -30,7 +29,6 @@
             height: 110px; 
             position: relative;
         }
-        
         header h1 {
             position: absolute;
             left: 40px; 
@@ -43,7 +41,6 @@
             white-space: nowrap;
             z-index: 2;
         }
-        
         .logo-centro-wrapper {
             position: absolute;
             left: 50%;
@@ -58,7 +55,6 @@
             height: 65px;
             width: auto;
         }
-        
         #right-header {
             position: absolute;
             right: 40px;
@@ -82,7 +78,6 @@
             color: #ffffff;
             line-height: 1;
         }
-        
         main {
             flex: 1;
             padding: 30px;
@@ -130,13 +125,11 @@
             color: #ffffff;
             line-height: 1.2;
         }
-        
         .event-badges {
             display: flex;
             gap: 15px;
             align-items: center;
         }
-        
         .event-room {
             font-size: 1.6rem;
             color: #000000;
@@ -148,7 +141,7 @@
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
         
-        /* 🏷️ ESTILO BASE DE LA CAJITA DE DESTINATARIO */
+        /* 🏷️ ESTILO BASE REPARADO DE LA CAJITA DE DESTINATARIO */
         .event-destinatario {
             font-size: 1.6rem;
             color: #ffffff;
@@ -194,7 +187,6 @@
             50% { opacity: 1; }
             100% { opacity: 0.7; }
         }
-
         .no-events {
             font-size: 2.8rem;
             text-align: center;
@@ -243,16 +235,17 @@
         setInterval(updateClock, 1000);
         updateClock();
 
-        // 🎨 MOTOR DE COLOR CORREGIDO PARA EXTRAER DATA BRUTA DE SHAREPOINT
-        function obtenerColorDestinatario(valorBruto) {
-            if (!valorBruto) return '#00a896'; // Si viene vacío o nulo, por defecto el Celeste Corporativo original
+        // 🎨 MOTOR DE COLOR ARREGLADO Y BLINDADO
+        function obtenerColorDestinatario(valorPublico) {
+            // Si viene vacío o nulo, por defecto el Celeste Corporativo original
+            if (!valorPublico) return '#00a896'; 
             
-            // Si SharePoint nos manda un objeto (Choice field), extraemos su propiedad de texto interno
+            // Forzamos la data a texto limpio, sin importar si es objeto u opción de SharePoint
             let texto = "";
-            if (typeof valorBruto === 'object') {
-                texto = valorBruto.Value || valorBruto.value || JSON.stringify(valorBruto);
+            if (typeof valorPublico === 'object') {
+                texto = valorPublico.Value || valorPublico.value || JSON.stringify(valorPublico);
             } else {
-                texto = String(valorBruto);
+                texto = String(valorPublico);
             }
             
             // Pasamos a minúsculas y limpiamos espacios fantasmas
@@ -266,16 +259,17 @@
                 return '#198754'; // Verde institucional -> Escuelas
             }
             
-            return '#00a896'; // Fallback estético al celeste si no calza ninguna palabra clave
+            // Fallback estético al celeste si no calza ninguna palabra clave
+            return '#00a896'; 
         }
 
         // FUNCIÓN AUXILIAR: Mapea el texto limpio para mostrar dentro de la caja
-        function obtenerTextoDestinatario(valorBruto) {
-            if (!valorBruto) return 'TODO PÚBLICO';
-            if (typeof valorBruto === 'object') {
-                return valorBruto.Value || valorBruto.value || 'TODO PÚBLICO';
+        function obtenerTextoDestinatario(valorPublico) {
+            if (!valorPublico) return 'TODO PÚBLICO';
+            if (typeof valorPublico === 'object') {
+                return valorPublico.Value || valorPublico.value || 'TODO PÚBLICO';
             }
-            return String(valorBruto).trim();
+            return String(valorPublico).trim();
         }
 
         function iniciarManejoPantalla() {
@@ -375,7 +369,7 @@
                                 }
                             }
 
-                            // 🚀 CLAVE: Mapeamos usando de forma estricta "destinatario" o "Destinatario" desde SharePoint
+                            // 🛠️ Mapeo CORRECTO de la columna de SharePoint "Destinatario"
                             listaProcesada.push({
                                 title: ev.title || "Evento sin título",
                                 sala: ev.sala || "Por definir",
@@ -456,7 +450,7 @@
                         }
                     }
 
-                    // Forzar el cálculo dinámico del color y del texto limpio
+                    // Calculamos el color y el texto limpio justo antes de renderizar
                     const colorBadge = obtenerColorDestinatario(ev.rawDestino);
                     const textoMostrar = obtenerTextoDestinatario(ev.rawDestino);
 
