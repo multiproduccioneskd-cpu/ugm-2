@@ -102,29 +102,53 @@
             const container = document.getElementById('events-container');
             const tituloSeccion = document.getElementById('main-title');
             
-            // Forzamos la consulta con la Query que espera tu api/cartelera.js original
-            const parametroVista = modoVistaSemanas ? 'semana' : 'hoy';
             tituloSeccion.innerText = modoVistaSemanas ? "PRÓXIMOS EVENTOS" : "EVENTOS DE HOY";
 
             try {
-                const response = await fetch(`https://ugm-2.vercel.app/api/cartelera?vista=${parametroVista}&nocache=${Date.now()}`);
+                const response = await fetch(`https://ugm-2.vercel.app/api/cartelera?nocache=${Date.now()}`);
                 if (!response.ok) throw new Error('Error API');
                 
-                const eventos = await response.json();
+                const eventosRaw = await response.json();
                 container.innerHTML = '';
                 
-                // Si la vista actual no trae nada, forzamos el cambio a la otra pantalla de una para evitar vacíos
-                if (!eventos || eventos.length === 0 || eventos.error) {
-                    container.innerHTML = '<div class="no-events">No hay más eventos registrados para esta sección</div>';
+                if (!eventosRaw || eventosRaw.length === 0 || eventosRaw.error) {
+                    container.innerHTML = '<div class="no-events">No hay eventos registrados en la cartelera</div>';
                     container.classList.add('fade-in');
-                    rotationTimeout = setTimeout(siguientePantalla, 5000);
+                    rotationTimeout = setTimeout(siguientePantalla, 8000);
                     return;
                 }
 
-                eventos.forEach(ev => {
+                const ahoraChile = new Date(new Date().toLocaleString("en-US", {timeZone: "America/Santiago"}));
+                const hoyChileString = ahoraChile.toLocaleDateString('sv-SE'); 
+
+                let muestraFinal = [];
+
+                if (modoVistaSemanas) {
+                    // Vista semana: Eventos futuros
+                    muestraFinal = eventosRaw.filter(ev => !ev.esHoy && ev.fechaStr > hoyChileString);
+                } else {
+                    // Vista hoy: Eventos del día de hoy
+                    muestraFinal = eventosRaw.filter(ev => ev.esHoy);
+                }
+
+                // Si la sección de hoy está vacía, salta directo a mostrar los Próximos Eventos
+                if (muestraFinal.length === 0 && !modoVistaSemanas) {
+                    tituloSeccion.innerText = "PRÓXIMOS EVENTOS";
+                    muestraFinal = eventosRaw.filter(ev => !ev.esHoy && ev.fechaStr > hoyChileString);
+                }
+
+                if (muestraFinal.length === 0) {
+                    container.innerHTML = '<div class="no-events">No hay más eventos programados</div>';
+                    container.classList.add('fade-in');
+                    modoVistaSemanas = !modoVistaSemanas;
+                    rotationTimeout = setTimeout(siguientePantalla, 8000);
+                    return;
+                }
+
+                container.innerHTML = '';
+                
+                muestraFinal.forEach(ev => {
                     let etiquetaDia = "Hoy";
-                    
-                    // Si el backend nos dice que no es de hoy, formateamos la fecha de la tarjeta
                     if (!ev.esHoy && ev.fechaStr) {
                         try {
                             const [aaaa, mes, dd] = ev.fechaStr.split('-');
@@ -140,11 +164,11 @@
                     card.innerHTML = `
                         <div class="event-info">
                             <div class="event-title">${ev.title}</div>
-                            <div class="event-room">${ev.sala || "Por definir"}</div>
+                            <div class="event-room">${ev.sala}</div>
                         </div>
                         <div class="event-time">
                             <div class="event-day-label">${etiquetaDia}</div>
-                            <div>${ev.hora || "00:00"}</div>
+                            <div>${ev.hora}</div>
                         </div>
                     `;
                     container.appendChild(card);
