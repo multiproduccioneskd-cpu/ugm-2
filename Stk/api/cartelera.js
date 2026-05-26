@@ -1,5 +1,5 @@
 module.exports = async (req, res) => {
-    // Cabeceras CORS obligatorias para que la tele de la U no bloquee la petición
+    // Cabeceras CORS obligatorias para que el navegador de la tele no bloquee la petición
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -10,7 +10,7 @@ module.exports = async (req, res) => {
     }
 
     try {
-        // 1. Obtener Token de Acceso desde Azure Entra ID usando tus variables de entorno
+        // 1. Obtener Token de Acceso desde Azure Entra ID
         const tokenUrl = `https://login.microsoftonline.com/${process.env.TENANT_ID}/oauth2/v2.0/token`;
         
         const bodyParams = new URLSearchParams();
@@ -33,7 +33,7 @@ module.exports = async (req, res) => {
         const tokenData = await tokenRes.json();
         const accessToken = tokenData.access_token;
 
-        // 2. 🚀 LA URL CORECTA DE TU HISTORIAL: Apunta al sitio 'Calen' y la lista 'lista calen'
+        // 2. 🚀 LA URL REAL DE TU HISTORIAL: Apunta al sitio 'Calen' y la lista 'lista calen'
         const graphUrl = `https://graph.microsoft.com/v1.0/sites/ugmchile.sharepoint.com:/sites/Calen:/lists/lista%20calen/items?expand=fields&$top=100`;
 
         const graphRes = await fetch(graphUrl, {
@@ -53,18 +53,18 @@ module.exports = async (req, res) => {
         const graphData = await graphRes.json();
         const rawItems = graphData.value || [];
 
-        // Obtener fecha de hoy y hora en Chile para los filtros
+        // Obtener fecha de hoy y hora en Chile (Santiago) para realizar los cortes cronológicos
         const hoyChile = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
         const horaChile = new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Santiago' });
 
-        // 3. Procesamiento y mapeo idéntico a tu lógica original
+        // 3. Mapeo idéntico al de tu Git historial que extrae horas y salas correctas
         const eventosProcesados = rawItems.map(item => {
             const f = item.fields || {};
             
             // Forzar rastreo de ubicación
             let sala = f.Sala || f.Ubicacion || f.Location || f.U_G_M_Sala || "Por definir";
             
-            // Rastreador de fecha de calendario real
+            // Rastreador agresivo de fecha de calendario real
             let fechaCruda = f.EventDate || f.StartDate || f.EventDateTime || item.createdDateTime || "";
             let fechaTexto = "9999-12-31";
             let horaTexto = "00:00";
@@ -81,7 +81,7 @@ module.exports = async (req, res) => {
                     let minutos = subPartesHora[1] || "00";
                     
                     if (!isNaN(horaOriginal)) {
-                        // Sumamos las 4 horas de desfase de la API de Microsoft
+                        // Sumamos las 4 horas de desfase de la API de Microsoft para la hora local de Chile
                         let horaAjustada = (horaOriginal + 4) % 24;
                         if (parseInt(minutos, 10) > 0 && parseInt(minutos, 10) < 10) minutos = "00";
                         horaTexto = `${String(horaAjustada).padStart(2, '0')}:${minutos}`;
@@ -98,7 +98,7 @@ module.exports = async (req, res) => {
             };
         });
 
-        // 4. Separar de forma dura en el backend según lo que pida tu HTML (?vista=hoy o ?vista=semana)
+        // 4. Separar la data según lo que pida el parámetro ?vista=
         const tipoVista = req.query.vista || 'hoy';
         let resultadoFiltrado = [];
 
@@ -113,7 +113,7 @@ module.exports = async (req, res) => {
             resultadoFiltrado = eventosProcesados.filter(ev => !ev.esHoy && ev.fechaStr > hoyChile);
         }
 
-        // Ordenar cronológicamente antes de enviar
+        // Ordenar cronológicamente
         resultadoFiltrado.sort((a, b) => `${a.fechaStr}T${a.hora}`.localeCompare(`${b.fechaStr}T${b.hora}`));
 
         res.setHeader('Cache-Control', 'no-shadow, no-store, must-revalidate');
