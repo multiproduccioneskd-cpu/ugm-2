@@ -1,5 +1,4 @@
 module.exports = async (req, res) => {
-    // Cabeceras CORS obligatorias para el visor de la tele
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -10,9 +9,7 @@ module.exports = async (req, res) => {
     }
 
     try {
-        // 1. Obtener Token de Acceso desde Azure Entra ID usando tus variables de entorno
         const tokenUrl = `https://login.microsoftonline.com/${process.env.TENANT_ID}/oauth2/v2.0/token`;
-        
         const bodyParams = new URLSearchParams();
         bodyParams.append('client_id', process.env.CLIENT_ID);
         bodyParams.append('scope', 'https://graph.microsoft.com/.default');
@@ -25,46 +22,29 @@ module.exports = async (req, res) => {
             body: bodyParams.toString()
         });
 
-        if (!tokenRes.ok) {
-            const errText = await tokenRes.text();
-            throw new Error(`Error Azure Token: ${errText}`);
-        }
-        
+        if (!tokenRes.ok) throw new Error("Error obteniendo Token de Azure");
         const tokenData = await tokenRes.json();
         const accessToken = tokenData.access_token;
 
-        // 2. 🚀 URL REAL DEL HISTORIAL: Apunta al sitio 'Calen' y la lista 'lista calen'
         const graphUrl = `https://graph.microsoft.com/v1.0/sites/ugmchile.sharepoint.com:/sites/Calen:/lists/lista%20calen/items?expand=fields&$top=100`;
-
         const graphRes = await fetch(graphUrl, {
             method: 'GET',
-            headers: { 
-                'Authorization': `Bearer ${accessToken}`,
-                'Accept': 'application/json',
-                'Cache-Control': 'no-cache'
-            }
+            headers: { 'Authorization': `Bearer ${accessToken}`, 'Accept': 'application/json' }
         });
 
-        if (!graphRes.ok) {
-            const errText = await graphRes.text();
-            throw new Error(`Microsoft Graph respondió: ${errText}`);
-        }
-        
-        const graphData = await graphRes.json();
+        if (!graphRes.ok) throw new Error("Microsoft Graph no respondió");
+        const graphData = graphRes.json ? await graphRes.json() : JSON.parse(await graphRes.text());
         const rawItems = graphData.value || [];
 
-        // Obtener fecha de hoy en Chile (YYYY-MM-DD)
         const hoyChile = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
 
-        // 3. Mapeo idéntico al de tu historial (Cálculo de desfase de +4 horas incluido)
         const eventosProcesados = rawItems.map(item => {
             const f = item.fields || {};
             
-            // Forzar rastreo de ubicación como lo hacía el tuyo
-            let sala = f.Sala || f.Ubicacion || f.Location || f.U_G_M_Sala || "Por definir";
+            // 🚀 CORRECCIÓN DE UBICACIÓN: Tu lista usa U_G_M_Sala
+            let sala = f.U_G_M_Sala || f.Sala || f.Ubicacion || "Por definir";
             
-            // Rastreador agresivo de fecha de calendario real
-            let fechaCruda = f.EventDate || f.StartDate || f.EventDateTime || item.createdDateTime || "";
+            let fechaCruda = f.EventDate || f.StartDate || "";
             let fechaTexto = "9999-12-31";
             let horaTexto = "00:00";
             let esHoy = false;
@@ -75,15 +55,25 @@ module.exports = async (req, res) => {
                     fechaTexto = partes[0];
                     esHoy = (fechaTexto === hoyChile);
                     
-                    const subPartesHora = partes[1].split(':');
-                    let horaOriginal = parseInt(subPartesHora[0], 10);
-                    let minutos = subPartesHora[1] || "00";
-                    
-                    if (!isNaN(horaOriginal)) {
-                        // Sumamos las 4 horas de desfase de la API de Microsoft para la hora local de Chile
-                        let horaAjustada = (horaOriginal + 4) % 24;
-                        if (parseInt(minutos, 10) > 0 && parseInt(minutos, 10) < 10) minutos = "00";
-                        horaTexto = `${String(horaAjustada).padStart(2, '0')}:${minutos}`;
+                    // 🚀 CORRECCIÓN DE HORA: Formateamos usando el huso horario local de Santiago
+                    try {
+                        const dateObjeto = new Date(fechaCruda);
+                        if (!isNaN(dateObjeto.getTime())) {
+                            horaTexto = dateObjeto.toLocaleTimeString('es-CL', { 
+                                hour: '2-digit', 
+                                minute: '2-digit', 
+                                hour12: false, 
+                                timeZone: 'America/Santiago' 
+                            });
+                        }
+                    } catch (e) {
+                        const subPartesHora = partes[1].split(':');
+                        let horaOriginal = parseInt(subPartesHora[0], 10);
+                        let minutos = subPartesHora[1] || "00";
+                        if (!isNaN(horaOriginal)) {
+                            let horaAjustada = (horaOriginal + 4) % 24;
+                            horaTexto = `${String(horaAjustada).padStart(2, '0')}:${minutos}`;
+                        }
                     }
                 }
             }
@@ -97,14 +87,14 @@ module.exports = async (req, res) => {
             };
         });
 
-        // Ordenar cronológicamente antes de enviar todo el paquete al HTML
+        // Entregamos la lista completa limpia al frontend sin filtros duros que la dejen en blanco
         eventosProcesados.sort((a, b) => `${a.fechaStr}T${a.hora}`.localeCompare(`${b.fechaStr}T${b.hora}`));
 
         res.setHeader('Cache-Control', 'no-shadow, no-store, must-revalidate');
         return res.status(200).json(eventosProcesados);
 
     } catch (error) {
-        console.error("Fallo crítico backend:", error);
+        console.error(error);
         return res.status(500).json({ error: error.message });
     }
 };
