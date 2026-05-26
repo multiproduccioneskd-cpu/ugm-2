@@ -1,5 +1,5 @@
 module.exports = async (req, res) => {
-    // Cabeceras CORS obligatorias
+    // Cabeceras CORS esenciales para la tele de la U
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -29,7 +29,7 @@ module.exports = async (req, res) => {
         const tokenData = await tokenRes.json();
         const accessToken = tokenData.access_token;
 
-        // 2. URL de la lista calen expandiendo fields
+        // 2. Conectar a la lista oficial expandiendo todos los fields ocultos
         const graphUrl = `https://graph.microsoft.com/v1.0/sites/ugmchile.sharepoint.com:/sites/Calen:/lists/lista%20calen/items?expand=fields&$top=100`;
 
         const graphRes = await fetch(graphUrl, {
@@ -44,35 +44,29 @@ module.exports = async (req, res) => {
         const graphData = await graphRes.json();
         const rawItems = graphData.value || [];
 
-        // 3. Mapeo ultra-blindado contra campos vacíos o mañosos de SharePoint
+        // 3. Mapeo plano directo de las columnas nativas de SharePoint
         const eventosProcesados = rawItems.map(item => {
             const f = item.fields || {};
             
-            // Buscar la SALA barriendo todas las posibilidades de SharePoint
-            let salaReal = f.U_G_M_Sala || f.Sala || f.Ubicacion || f.Location || f.OData__Location || f.OData__U_G_M_Sala || "Por definir";
+            // Forzar rescate de ubicación real (U_G_M_Sala)
+            let salaReal = f.U_G_M_Sala || f.Sala || f.Ubicacion || "Por definir";
             
-            // Buscar la FECHA barriendo todos los nombres ocultos que genera un Calendario de SharePoint
-            let fechaCruda = f.EventDate || f.StartDateTime || f.StartDate || f.Fecha || f.OData__EventDate || f.OData__StartDate || "";
-
-            // Asegurar que fechaCruda sea SIEMPRE un string válido para que el .split() del HTML no explote
-            if (!fechaCruda || typeof fechaCruda !== 'string') {
-                fechaCruda = "2026-05-26T00:00:00Z"; // Respaldo seguro con formato ISO por si viene null
-            }
+            // Forzar rescate de fecha de calendario nativa (EventDate) o alternativas de sistema
+            let fechaOriginal = f.EventDate || f.StartDate || f.EventDateTime || "";
 
             return {
                 title: f.Title || f.LinkTitle || "Evento sin título",
                 sala: salaReal,
-                casillaTiempo: fechaCruda, // Envía el ISO limpio que tu HTML necesita romper con .split('T')
+                casillaTiempo: fechaOriginal, // Mandamos el string ISO puro de Microsoft para procesarlo en el HTML
                 Destinatario: f.Destinatario || f.destinatario || ""
             };
         });
 
-        // Desactivar caché para que los cambios en SharePoint se reflejen en tiempo real en la tele
         res.setHeader('Cache-Control', 'no-shadow, no-store, must-revalidate');
         return res.status(200).json(eventosProcesados);
 
     } catch (error) {
-        console.error("Fallo crítico en el procesador backend:", error);
+        console.error("Fallo crítico backend:", error);
         return res.status(500).json({ error: error.message });
     }
 };
