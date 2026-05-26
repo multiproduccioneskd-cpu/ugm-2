@@ -1,5 +1,5 @@
 module.exports = async (req, res) => {
-    // Cabeceras CORS esenciales para la tele de la U
+    // Cabeceras CORS obligatorias
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -29,7 +29,7 @@ module.exports = async (req, res) => {
         const tokenData = await tokenRes.json();
         const accessToken = tokenData.access_token;
 
-        // 2. Conectar al sitio 'Calen' y la lista 'lista calen' expandiendo los campos
+        // 2. URL de la lista calen expandiendo fields
         const graphUrl = `https://graph.microsoft.com/v1.0/sites/ugmchile.sharepoint.com:/sites/Calen:/lists/lista%20calen/items?expand=fields&$top=100`;
 
         const graphRes = await fetch(graphUrl, {
@@ -44,31 +44,35 @@ module.exports = async (req, res) => {
         const graphData = await graphRes.json();
         const rawItems = graphData.value || [];
 
-        // 3. 🚀 EL MAPEO EXACTO PARA TU HTML HISTÓRICO:
-        // Entregamos "title", "sala" y "casillaTiempo" directo del sub-objeto fields de SharePoint
+        // 3. Mapeo ultra-blindado contra campos vacíos o mañosos de SharePoint
         const eventosProcesados = rawItems.map(item => {
             const f = item.fields || {};
             
-            // Forzar el rescate de la sala desde el campo real de tu SharePoint (U_G_M_Sala)
-            let salaReal = f.U_G_M_Sala || f.Sala || f.Ubicacion || "Por definir";
+            // Buscar la SALA barriendo todas las posibilidades de SharePoint
+            let salaReal = f.U_G_M_Sala || f.Sala || f.Ubicacion || f.Location || f.OData__Location || f.OData__U_G_M_Sala || "Por definir";
             
-            // Forzar el rescate de la fecha/hora original del calendario (EventDate)
-            let fechaOriginal = f.EventDate || f.StartDate || f.Fecha || "";
+            // Buscar la FECHA barriendo todos los nombres ocultos que genera un Calendario de SharePoint
+            let fechaCruda = f.EventDate || f.StartDateTime || f.StartDate || f.Fecha || f.OData__EventDate || f.OData__StartDate || "";
+
+            // Asegurar que fechaCruda sea SIEMPRE un string válido para que el .split() del HTML no explote
+            if (!fechaCruda || typeof fechaCruda !== 'string') {
+                fechaCruda = "2026-05-26T00:00:00Z"; // Respaldo seguro con formato ISO por si viene null
+            }
 
             return {
                 title: f.Title || f.LinkTitle || "Evento sin título",
                 sala: salaReal,
-                casillaTiempo: fechaOriginal, // Variable crítica que lee el JavaScript de tu index.html
-                Destinatario: f.Destinatario || f.destinatario || null // Por si el HTML lo usa de respaldo
+                casillaTiempo: fechaCruda, // Envía el ISO limpio que tu HTML necesita romper con .split('T')
+                Destinatario: f.Destinatario || f.destinatario || ""
             };
         });
 
-        // Respuesta limpia sin caché para actualización inmediata
+        // Desactivar caché para que los cambios en SharePoint se reflejen en tiempo real en la tele
         res.setHeader('Cache-Control', 'no-shadow, no-store, must-revalidate');
         return res.status(200).json(eventosProcesados);
 
     } catch (error) {
-        console.error("Fallo crítico en el puente API:", error);
+        console.error("Fallo crítico en el procesador backend:", error);
         return res.status(500).json({ error: error.message });
     }
 };
