@@ -1,4 +1,5 @@
 module.exports = async (req, res) => {
+    // Cabeceras CORS esenciales para la tele de la U
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -9,6 +10,7 @@ module.exports = async (req, res) => {
     }
 
     try {
+        // 1. Obtener Token de Acceso desde Azure Entra ID
         const tokenUrl = `https://login.microsoftonline.com/${process.env.TENANT_ID}/oauth2/v2.0/token`;
         
         const bodyParams = new URLSearchParams();
@@ -27,7 +29,8 @@ module.exports = async (req, res) => {
         const tokenData = await tokenRes.json();
         const accessToken = tokenData.access_token;
 
-        const graphUrl = `https://graph.microsoft.com/v1.0/sites/ugmchile.sharepoint.com:/sites/Calen:/lists/lista%20calen/items?expand=fields`;
+        // 2. Conectar al sitio 'Calen' y la lista 'lista calen' expandiendo los campos
+        const graphUrl = `https://graph.microsoft.com/v1.0/sites/ugmchile.sharepoint.com:/sites/Calen:/lists/lista%20calen/items?expand=fields&$top=100`;
 
         const graphRes = await fetch(graphUrl, {
             method: 'GET',
@@ -41,70 +44,31 @@ module.exports = async (req, res) => {
         const graphData = await graphRes.json();
         const rawItems = graphData.value || [];
 
-        const hoyChile = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
-
+        // 3. 🚀 EL MAPEO EXACTO PARA TU HTML HISTÓRICO:
+        // Entregamos "title", "sala" y "casillaTiempo" directo del sub-objeto fields de SharePoint
         const eventosProcesados = rawItems.map(item => {
             const f = item.fields || {};
             
-            // 🔍 LOG PARA REVISAR EN VERCEL: Borra esto si quieres después, sirve para ver las columnas reales
-            console.log("Campos del item:", f);
-
-            // Intentar agarrar la sala de todas las formas posibles que genera SharePoint
-            let salaReal = f.U_G_M_Sala || f.Sala || f.Ubicacion || f.Location || f.OData__Location || "Por definir";
+            // Forzar el rescate de la sala desde el campo real de tu SharePoint (U_G_M_Sala)
+            let salaReal = f.U_G_M_Sala || f.Sala || f.Ubicacion || "Por definir";
             
-            // 🔥 El gran problema de SharePoint: Las fechas cambian de nombre según el tipo de lista.
-            // Buscamos en orden de probabilidad:
-            let fechaCruda = f.EventDate || f.StartDateTime || f.StartDate || f.Fecha || f.OData__StartDate || "";
-            
-            let fechaTexto = "9999-12-31";
-            let horaTexto = "00:00";
-            let esHoy = false;
-
-            if (fechaCruda && typeof fechaCruda === 'string') {
-                try {
-                    const dateObjeto = new Date(fechaCruda);
-                    if (!isNaN(dateObjeto.getTime())) {
-                        fechaTexto = dateObjeto.toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
-                        esHoy = (fechaTexto === hoyChile);
-                        
-                        horaTexto = dateObjeto.toLocaleTimeString('es-CL', { 
-                            hour: '2-digit', 
-                            minute: '2-digit', 
-                            hour12: false, 
-                            timeZone: 'America/Santiago' 
-                        });
-                    }
-                } catch (e) {
-                    // Si falla el objeto Date, intentamos romper el String crudo (Ej: 2026-05-26T14:30:00Z)
-                    const partes = fechaCruda.split('T');
-                    if (partes[0]) {
-                        fechaTexto = partes[0];
-                        esHoy = (fechaTexto === hoyChile);
-                    }
-                    if (partes[1]) {
-                        horaTexto = partes[1].substring(0, 5);
-                    }
-                }
-            }
+            // Forzar el rescate de la fecha/hora original del calendario (EventDate)
+            let fechaOriginal = f.EventDate || f.StartDate || f.Fecha || "";
 
             return {
                 title: f.Title || f.LinkTitle || "Evento sin título",
                 sala: salaReal,
-                hora: horaTexto,
-                fechaStr: fechaTexto,
-                esHoy: esHoy,
-                casillaTiempo: fechaCruda
+                casillaTiempo: fechaOriginal, // Variable crítica que lee el JavaScript de tu index.html
+                Destinatario: f.Destinatario || f.destinatario || null // Por si el HTML lo usa de respaldo
             };
         });
 
-        // Ordenar cronológicamente
-        eventosProcesados.sort((a, b) => `${a.fechaStr}T${a.hora}`.localeCompare(`${b.fechaStr}T${b.hora}`));
-
+        // Respuesta limpia sin caché para actualización inmediata
         res.setHeader('Cache-Control', 'no-shadow, no-store, must-revalidate');
         return res.status(200).json(eventosProcesados);
 
     } catch (error) {
-        console.error("Fallo crítico:", error);
+        console.error("Fallo crítico en el puente API:", error);
         return res.status(500).json({ error: error.message });
     }
 };
