@@ -1,5 +1,4 @@
 module.exports = async (req, res) => {
-    // Cabeceras CORS limpias para la tele de la U
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -10,7 +9,6 @@ module.exports = async (req, res) => {
     }
 
     try {
-        // 1. Token de Azure Entra ID
         const tokenUrl = `https://login.microsoftonline.com/${process.env.TENANT_ID}/oauth2/v2.0/token`;
         
         const bodyParams = new URLSearchParams();
@@ -29,7 +27,6 @@ module.exports = async (req, res) => {
         const tokenData = await tokenRes.json();
         const accessToken = tokenData.access_token;
 
-        // 2. URL que sí conecta a la lista calen
         const graphUrl = `https://graph.microsoft.com/v1.0/sites/ugmchile.sharepoint.com:/sites/Calen:/lists/lista%20calen/items?expand=fields`;
 
         const graphRes = await fetch(graphUrl, {
@@ -44,15 +41,20 @@ module.exports = async (req, res) => {
         const graphData = await graphRes.json();
         const rawItems = graphData.value || [];
 
-        // Obtener fecha de hoy real en Santiago (YYYY-MM-DD)
         const hoyChile = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
 
-        // 3. Procesamos las fechas y horas tal como te gustaba antes
         const eventosProcesados = rawItems.map(item => {
             const f = item.fields || {};
             
-            let salaReal = f.U_G_M_Sala || f.Sala || f.Ubicacion || "Por definir";
-            let fechaCruda = f.EventDate || f.StartDate || f.EventDateTime || "";
+            // 🔍 LOG PARA REVISAR EN VERCEL: Borra esto si quieres después, sirve para ver las columnas reales
+            console.log("Campos del item:", f);
+
+            // Intentar agarrar la sala de todas las formas posibles que genera SharePoint
+            let salaReal = f.U_G_M_Sala || f.Sala || f.Ubicacion || f.Location || f.OData__Location || "Por definir";
+            
+            // 🔥 El gran problema de SharePoint: Las fechas cambian de nombre según el tipo de lista.
+            // Buscamos en orden de probabilidad:
+            let fechaCruda = f.EventDate || f.StartDateTime || f.StartDate || f.Fecha || f.OData__StartDate || "";
             
             let fechaTexto = "9999-12-31";
             let horaTexto = "00:00";
@@ -62,11 +64,9 @@ module.exports = async (req, res) => {
                 try {
                     const dateObjeto = new Date(fechaCruda);
                     if (!isNaN(dateObjeto.getTime())) {
-                        // Extrae la fecha limpia ajustada a Chile
                         fechaTexto = dateObjeto.toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
                         esHoy = (fechaTexto === hoyChile);
                         
-                        // Formatea la hora en 24 horas exacta de Santiago
                         horaTexto = dateObjeto.toLocaleTimeString('es-CL', { 
                             hour: '2-digit', 
                             minute: '2-digit', 
@@ -75,26 +75,29 @@ module.exports = async (req, res) => {
                         });
                     }
                 } catch (e) {
+                    // Si falla el objeto Date, intentamos romper el String crudo (Ej: 2026-05-26T14:30:00Z)
                     const partes = fechaCruda.split('T');
                     if (partes[0]) {
                         fechaTexto = partes[0];
                         esHoy = (fechaTexto === hoyChile);
                     }
+                    if (partes[1]) {
+                        horaTexto = partes[1].substring(0, 5);
+                    }
                 }
             }
 
-            // Retornamos TODAS las variables para no romper nada en el HTML
             return {
                 title: f.Title || f.LinkTitle || "Evento sin título",
                 sala: salaReal,
                 hora: horaTexto,
                 fechaStr: fechaTexto,
                 esHoy: esHoy,
-                casillaTiempo: fechaCruda // De respaldo por si acaso
+                casillaTiempo: fechaCruda
             };
         });
 
-        // Ordenar cronológicamente por fecha y hora
+        // Ordenar cronológicamente
         eventosProcesados.sort((a, b) => `${a.fechaStr}T${a.hora}`.localeCompare(`${b.fechaStr}T${b.hora}`));
 
         res.setHeader('Cache-Control', 'no-shadow, no-store, must-revalidate');
