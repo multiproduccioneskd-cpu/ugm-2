@@ -1,5 +1,5 @@
 module.exports = async (req, res) => {
-    // Cabeceras CORS obligatorias para que el navegador de la tele no bloquee la petición
+    // Cabeceras CORS obligatorias para el visor de la tele
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -10,7 +10,7 @@ module.exports = async (req, res) => {
     }
 
     try {
-        // 1. Obtener Token de Acceso desde Azure Entra ID
+        // 1. Obtener Token de Acceso desde Azure Entra ID usando tus variables de entorno
         const tokenUrl = `https://login.microsoftonline.com/${process.env.TENANT_ID}/oauth2/v2.0/token`;
         
         const bodyParams = new URLSearchParams();
@@ -33,7 +33,7 @@ module.exports = async (req, res) => {
         const tokenData = await tokenRes.json();
         const accessToken = tokenData.access_token;
 
-        // 2. 🚀 LA URL REAL DE TU HISTORIAL: Apunta al sitio 'Calen' y la lista 'lista calen'
+        // 2. 🚀 URL REAL DEL HISTORIAL: Apunta al sitio 'Calen' y la lista 'lista calen'
         const graphUrl = `https://graph.microsoft.com/v1.0/sites/ugmchile.sharepoint.com:/sites/Calen:/lists/lista%20calen/items?expand=fields&$top=100`;
 
         const graphRes = await fetch(graphUrl, {
@@ -53,15 +53,14 @@ module.exports = async (req, res) => {
         const graphData = await graphRes.json();
         const rawItems = graphData.value || [];
 
-        // Obtener fecha de hoy y hora en Chile (Santiago) para realizar los cortes cronológicos
+        // Obtener fecha de hoy en Chile (YYYY-MM-DD)
         const hoyChile = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
-        const horaChile = new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Santiago' });
 
-        // 3. Mapeo idéntico al de tu Git historial que extrae horas y salas correctas
+        // 3. Mapeo idéntico al de tu historial (Cálculo de desfase de +4 horas incluido)
         const eventosProcesados = rawItems.map(item => {
             const f = item.fields || {};
             
-            // Forzar rastreo de ubicación
+            // Forzar rastreo de ubicación como lo hacía el tuyo
             let sala = f.Sala || f.Ubicacion || f.Location || f.U_G_M_Sala || "Por definir";
             
             // Rastreador agresivo de fecha de calendario real
@@ -98,26 +97,11 @@ module.exports = async (req, res) => {
             };
         });
 
-        // 4. Separar la data según lo que pida el parámetro ?vista=
-        const tipoVista = req.query.vista || 'hoy';
-        let resultadoFiltrado = [];
-
-        if (tipoVista === 'semana') {
-            resultadoFiltrado = eventosProcesados.filter(ev => !ev.esHoy && ev.fechaStr > hoyChile);
-        } else {
-            resultadoFiltrado = eventosProcesados.filter(ev => ev.esHoy && ev.hora >= horaChile);
-        }
-
-        // Si la de hoy está vacía, le manda los próximos de una para que la tele no quede en blanco
-        if (resultadoFiltrado.length === 0 && tipoVista === 'hoy') {
-            resultadoFiltrado = eventosProcesados.filter(ev => !ev.esHoy && ev.fechaStr > hoyChile);
-        }
-
-        // Ordenar cronológicamente
-        resultadoFiltrado.sort((a, b) => `${a.fechaStr}T${a.hora}`.localeCompare(`${b.fechaStr}T${b.hora}`));
+        // Ordenar cronológicamente antes de enviar todo el paquete al HTML
+        eventosProcesados.sort((a, b) => `${a.fechaStr}T${a.hora}`.localeCompare(`${b.fechaStr}T${b.hora}`));
 
         res.setHeader('Cache-Control', 'no-shadow, no-store, must-revalidate');
-        return res.status(200).json(resultadoFiltrado);
+        return res.status(200).json(eventosProcesados);
 
     } catch (error) {
         console.error("Fallo crítico backend:", error);
