@@ -1,5 +1,5 @@
 module.exports = async (req, res) => {
-    // Cabeceras CORS duras para que el visor de la tele lea sin bloqueos
+    // Cabeceras CORS duras para que la tele lea sin bloqueos
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -54,29 +54,23 @@ module.exports = async (req, res) => {
         const graphData = await graphRes.json();
         const rawItems = graphData.value || [];
 
-        // 3. Capturar tiempos en Santiago de Chile
+        // Capturar fecha de hoy en Santiago de Chile (YYYY-MM-DD)
         const hoyChile = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' }); 
 
-        // 4. Mapear y limpiar la data de origen exactamente como lo hacía el tuyo
+        // 3. Mapear la data usando los nombres reales descubiertos en la captura
         const eventosProcesados = rawItems.map(item => {
             const f = item.fields || {};
             
-            // Buscador secuencial de ubicación/sala
-            let sala = "Por definir";
-            const posiblesColumnasSala = ["Sala", "Ubicacion", "Location", "U_G_M_Sala", "Ubicaci_x00f3_n"];
-            for (let col of posiblesColumnasSala) {
-                if (f[col]) { 
-                    sala = f[col]; 
-                    break; 
-                }
-            }
+            // 🚀 UBICACIÓN REAL DETECTADA: Ubicaci_x00f3_n
+            let salaReal = f.Ubicaci_x00f3_n || f.Sala || f.Ubicacion || "Por definir";
 
             let fechaTexto = "9999-12-31";
             let horaTexto = "00:00";
             let esHoy = false;
 
-            // 🚀 LA FÓRMULA HISTÓRICA DEL DESFASE +4
-            let fechaCruda = f.EventDate || f.StartDate || f.EventDateTime || item.createdDateTime || "";
+            // 🚀 FECHA REAL DETECTADA: Inicio
+            let fechaCruda = f.Inicio || f.EventDate || f.StartDate || "";
+            
             if (fechaCruda && typeof fechaCruda === 'string') {
                 const partes = fechaCruda.split('T');
                 if (partes[0] && partes[1]) {
@@ -88,7 +82,7 @@ module.exports = async (req, res) => {
                     let minutos = subPartesHora[1] || "00";
                     
                     if (!isNaN(horaOriginal)) {
-                        // Sumamos las 4 horas de desfase UTC-4 para la hora nacional
+                        // 🚀 LA FÓRMULA DEL HORARIO NACIONAL: Ajuste por desfase UTC-4
                         let horaAjustada = (horaOriginal + 4) % 24; 
                         if (parseInt(minutos, 10) > 0 && parseInt(minutos, 10) < 10) minutos = "00";
                         horaTexto = `${String(horaAjustada).padStart(2, '0')}:${minutos}`;
@@ -98,12 +92,12 @@ module.exports = async (req, res) => {
 
             return {
                 title: f.Title || f.LinkTitle || "Evento sin título",
-                sala: sala,
+                sala: salaReal,
                 hora: horaTexto,
                 fechaStr: fechaTexto,
                 esHoy: esHoy,
-                id: item.id,
-                fields: f // Mandamos el objeto completo por si el HTML procesa algo extra por fuera
+                casillaTiempo: fechaCruda, // Respaldo para el split() del HTML
+                Destinatario: f.Destinatario || null
             };
         });
 
@@ -115,9 +109,6 @@ module.exports = async (req, res) => {
 
     } catch (error) {
         console.error("Fallo crítico backend:", error);
-        return res.status(500).json({ 
-            error: "Error interno del servidor backend", 
-            mensaje: error.message 
-        });
+        return res.status(500).json({ error: error.message });
     }
 };
