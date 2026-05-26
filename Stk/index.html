@@ -107,7 +107,7 @@
             background-color: #172a45;
             border-left: 12px solid #0056b3;
             border-radius: 12px;
-            padding: 30px 45px;
+            padding: 35px 45px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -120,18 +120,13 @@
             flex: 1;
         }
         .event-title {
-            font-size: 2.6rem;
+            font-size: 2.8rem;
             font-weight: bold;
             color: #ffffff;
             line-height: 1.2;
         }
-        .event-badges {
-            display: flex;
-            gap: 15px;
-            align-items: center;
-        }
         .event-room {
-            font-size: 1.6rem;
+            font-size: 1.8rem;
             color: #000000;
             font-weight: bold;
             background-color: #ffa500; 
@@ -139,18 +134,10 @@
             border-radius: 8px;
             text-transform: uppercase;
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        }
-        .event-destinatario {
-            font-size: 1.6rem;
-            color: #ffffff;
-            font-weight: bold;
-            padding: 6px 20px;
-            border-radius: 8px;
-            text-transform: uppercase;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            width: fit-content;
         }
         .event-time {
-            font-size: 3.2rem;
+            font-size: 3.5rem;
             font-weight: 800;
             color: #38b6ff;
             background-color: #0b192f;
@@ -162,10 +149,10 @@
             display: flex;
             flex-direction: column;
             justify-content: center;
-            min-width: 210px;
+            min-width: 220px;
         }
         .event-day-label {
-            font-size: 1.2rem;
+            font-size: 1.3rem;
             color: #8892b0;
             text-transform: uppercase;
             font-weight: bold;
@@ -208,7 +195,7 @@
     <main>
         <div id="scroll-wrapper">
             <div id="events-container" class="container">
-                <div class="no-events">Buscando programaciones en SharePoint...</div>
+                <div class="no-events">Cargando cartelera universitaria...</div>
             </div>
         </div>
     </main>
@@ -228,30 +215,6 @@
         }
         setInterval(updateClock, 1000);
         updateClock();
-
-        // 🧠 DETECTOR INTELIGENTE DE TEXTO: Analiza el título si la columna viene vacía
-        function analizarDestinatario(titulo, rawDestino) {
-            let texto = "";
-            if (rawDestino) {
-                if (typeof rawDestino === 'object') texto = rawDestino.Value || rawDestino.value || "";
-                else texto = String(rawDestino);
-            }
-            
-            // Si la API no lo trae, leemos las palabras clave dentro del título del evento
-            if (!texto) {
-                const tObj = String(titulo).toLowerCase();
-                if (tObj.includes('taller') || tObj.includes('integración') || tObj.includes('reunión')) return { texto: 'ADMINISTRATIVOS', color: '#6f42c1' };
-                if (tObj.includes('escuela') || tObj.includes('charla')) return { texto: 'ESCUELAS', color: '#198754' };
-                if (tObj.includes('cine') || tObj.includes('conversatorio') || tObj.includes('dev talks')) return { texto: 'COMUNIDAD UGM', color: '#00a896' };
-                return { texto: 'COMUNIDAD UGM', color: '#00a896' }; // Fallback estético original
-            }
-
-            const t = texto.toLowerCase().trim();
-            if (t.includes('comunidad')) return { texto: 'COMUNIDAD UGM', color: '#00a896' };
-            if (t.includes('administrativo')) return { texto: 'ADMINISTRATIVOS', color: '#6f42c1' };
-            if (t.includes('escuela')) return { texto: 'ESCUELAS', color: '#198754' };
-            return { texto: texto.toUpperCase(), color: '#00a896' };
-        }
 
         function iniciarManejoPantalla() {
             if (scrollInterval) clearInterval(scrollInterval);
@@ -308,7 +271,7 @@
                 container.innerHTML = '';
                 
                 if (!eventosRaw || eventosRaw.length === 0 || eventosRaw.error) {
-                    container.innerHTML = '<div class="no-events">No hay eventos registrados en SharePoint</div>';
+                    container.innerHTML = '<div class="no-events">No hay eventos registrados en la cartelera</div>';
                     container.classList.add('fade-in');
                     rotationTimeout = setTimeout(siguientePantalla, 10000);
                     return;
@@ -320,17 +283,19 @@
                 const listaProcesada = [];
 
                 eventosRaw.forEach(ev => {
-                    if (ev.casillaTiempo && typeof ev.casillaTiempo === 'string') {
-                        const dateObjeto = new Date(ev.casillaTiempo);
+                    // Sincronizamos la lectura con las llaves que manda el backend de Graph (fecha, hora, fechaStr)
+                    const tiempo = ev.casillaTiempo || ev.fecha || ev.fechaStr || ev.Fecha;
+                    if (tiempo && typeof tiempo === 'string') {
+                        const dateObjeto = new Date(tiempo);
                         
                         if (!isNaN(dateObjeto.getTime())) {
-                            const esTodoElDia = ev.casillaTiempo.includes("T00:00:00") || ev.casillaTiempo.includes("T02:00:00");
+                            const esTodoElDia = tiempo.includes("T00:00:00") || tiempo.includes("T02:00:00");
                             
                             let fechaTexto = dateObjeto.toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
-                            let horaTexto = dateObjeto.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Santiago' });
+                            let horaTexto = ev.hora || dateObjeto.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Santiago' });
                             
                             if (esTodoElDia) {
-                                fechaTexto = ev.casillaTiempo.split('T')[0];
+                                fechaTexto = tiempo.split('T')[0];
                                 horaTexto = "Todo el día";
                             }
 
@@ -341,10 +306,10 @@
                                 const horaEventoObj = new Date(dateObjeto.toLocaleString("en-US", {timeZone: "America/Santiago"}));
                                 const diferenciaMinutos = (ahoraChile - horaEventoObj) / 60000;
 
+                                // Filtro dinámico original: saca de pantalla pasados los 30 minutos
                                 if (diferenciaMinutos > 30) {
                                     return; 
                                 }
-                                
                                 if (diferenciaMinutos >= 0 && diferenciaMinutos <= 30) {
                                     etiquetaEstado = "En curso";
                                 }
@@ -353,7 +318,6 @@
                             listaProcesada.push({
                                 title: ev.title || "Evento sin título",
                                 sala: ev.sala || "Por definir",
-                                rawDestino: ev.Destinatario || ev.destinatario || null, 
                                 hora: horaTexto,
                                 fechaStr: fechaTexto,
                                 esHoy: esHoy,
@@ -407,7 +371,6 @@
                 }
 
                 muestraFinal.sort((a, b) => `${a.fechaStr}T${a.hora}`.localeCompare(`${b.fechaStr}T${b.hora}`));
-
                 container.innerHTML = '';
                 
                 muestraFinal.forEach(ev => {
@@ -430,19 +393,13 @@
                         }
                     }
 
-                    // Forzar el análisis inteligente del texto e inyección de colores corporativos
-                    const metaPublico = analizarDestinatario(ev.title, ev.rawDestino);
-
                     const card = document.createElement('div');
                     card.className = 'event-card';
                     
                     card.innerHTML = `
                         <div class="event-info">
                             <div class="event-title">${ev.title}</div>
-                            <div class="event-badges">
-                                <div class="event-room">${ev.sala}</div>
-                                <div class="event-destinatario" style="background-color: ${metaPublico.color};">${metaPublico.texto}</div>
-                            </div>
+                            <div class="event-room">${ev.sala}</div>
                         </div>
                         <div class="event-time">
                             <div class="event-day-label ${claseExtra}">${etiquetaDia}</div>
@@ -457,7 +414,7 @@
 
             } catch (error) {
                 console.error(error);
-                container.innerHTML = '<div class="no-events">⚠️ Error de conexión</div>';
+                container.innerHTML = '<div class="no-events">⚠️ Error de conexión con el visor</div>';
                 container.classList.add('fade-in');
                 rotationTimeout = setTimeout(siguientePantalla, 10000);
             }
