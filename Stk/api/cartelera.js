@@ -1,7 +1,7 @@
 module.exports = async (req, res) => {
-    // Cabeceras CORS esenciales para las pantallas de la U
+    // Cabeceras CORS duras para que el visor de la tele lea sin bloqueos
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
 
     if (req.method === 'OPTIONS') {
@@ -10,89 +10,114 @@ module.exports = async (req, res) => {
     }
 
     try {
-        // 1. Obtener Token de Acceso desde Azure Entra ID
-        const tokenUrl = `https://login.microsoftonline.com/${process.env.TENANT_ID}/oauth2/v2.0/token`;
-        const bodyParams = new URLSearchParams();
-        bodyParams.append('client_id', process.env.CLIENT_ID);
-        bodyParams.append('scope', 'https://graph.microsoft.com/.default');
-        bodyParams.append('client_secret', process.env.CLIENT_SECRET);
-        bodyParams.append('grant_type', 'client_credentials');
+        const { TENANT_ID, CLIENT_ID, CLIENT_SECRET } = process.env;
+
+        // 1. Obtener Token de Azure
+        const tokenUrl = `https://login.microsoftonline.com/${TENANT_ID}/oauth2/v2.0/token`;
+        const params = new URLSearchParams({
+            client_id: CLIENT_ID,
+            scope: 'https://graph.microsoft.com/.default',
+            client_secret: CLIENT_SECRET,
+            grant_type: 'client_credentials'
+        });
 
         const tokenRes = await fetch(tokenUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: bodyParams.toString()
+            body: params.toString(),
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
         });
 
-        if (!tokenRes.ok) throw new Error("Error obteniendo Token de Azure");
+        if (!tokenRes.ok) {
+            const errText = await tokenRes.text();
+            throw new Error(`Error Azure Token: ${errText}`);
+        }
+        
         const tokenData = await tokenRes.json();
         const accessToken = tokenData.access_token;
 
-        // 2. Traer los ítems desde SharePoint
+        // 2. Traer datos desde SharePoint apuntando a la lista 'lista calen'
         const graphUrl = `https://graph.microsoft.com/v1.0/sites/ugmchile.sharepoint.com:/sites/Calen:/lists/lista%20calen/items?expand=fields&$top=100`;
+
         const graphRes = await fetch(graphUrl, {
             method: 'GET',
-            headers: { 'Authorization': `Bearer ${accessToken}`, 'Accept': 'application/json' }
+            headers: { 
+                'Authorization': `Bearer ${accessToken}`,
+                'Accept': 'application/json'
+            }
         });
 
-        if (!graphRes.ok) throw new Error("Microsoft Graph no respondió");
+        if (!graphRes.ok) {
+            const errText = await graphRes.text();
+            throw new Error(`Microsoft Graph respondió: ${errText}`);
+        }
+        
         const graphData = await graphRes.json();
         const rawItems = graphData.value || [];
 
-        // Obtener la fecha de hoy real en Santiago de Chile (YYYY-MM-DD)
-        const hoyChileString = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
+        // 3. Capturar tiempos en Santiago de Chile
+        const hoyChile = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' }); 
 
-        // 3. 🚀 AQUÍ ESTÁ LA FÓRMULA DEL JSON SINCRONIZADO:
+        // 4. Mapear y limpiar la data de origen exactamente como lo hacía el tuyo
         const eventosProcesados = rawItems.map(item => {
             const f = item.fields || {};
             
-            let salaReal = f.U_G_M_Sala || f.Sala || f.Ubicacion || "Por definir";
-            let fechaCruda = f.EventDate || f.StartDateTime || f.StartDate || "";
-
-            let fechaTexto = "9999-12-31";
-            let horaTexto = "00:00";
-            
-            if (fechaCruda) {
-                const d = new Date(fechaCruda);
-                if (!isNaN(d.getTime())) {
-                    // Forzamos al objeto Date a transformarse al horario nacional de Chile
-                    fechaTexto = d.toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
-                    
-                    // Extraemos la hora exacta en formato 24H ajustada a Santiago
-                    horaTexto = d.toLocaleTimeString('es-CL', { 
-                        hour: '2-digit', 
-                        minute: '2-digit', 
-                        hour12: false, 
-                        timeZone: 'America/Santiago' 
-                    });
+            // Buscador secuencial de ubicación/sala
+            let sala = "Por definir";
+            const posiblesColumnasSala = ["Sala", "Ubicacion", "Location", "U_G_M_Sala", "Ubicaci_x00f3_n"];
+            for (let col of posiblesColumnasSala) {
+                if (f[col]) { 
+                    sala = f[col]; 
+                    break; 
                 }
             }
 
-            // Si por alguna razón SharePoint devuelve las 00:00 o 02:00 de un evento "Todo el día"
-            if (horaTexto === "00:00" && fechaCruda.includes("T00:00")) {
-                horaTexto = "Todo el día";
-            }
+            let fechaTexto = "9999-12-31";
+            let horaTexto = "00:00";
+            let esHoy = false;
 
-            const esHoy = (fechaTexto === hoyChileString);
+            // 🚀 LA FÓRMULA HISTÓRICA DEL DESFASE +4
+            let fechaCruda = f.EventDate || f.StartDate || f.EventDateTime || item.createdDateTime || "";
+            if (fechaCruda && typeof fechaCruda === 'string') {
+                const partes = fechaCruda.split('T');
+                if (partes[0] && partes[1]) {
+                    fechaTexto = partes[0];
+                    esHoy = (fechaTexto === hoyChile);
+                    
+                    const subPartesHora = partes[1].split(':');
+                    let horaOriginal = parseInt(subPartesHora[0], 10);
+                    let minutos = subPartesHora[1] || "00";
+                    
+                    if (!isNaN(horaOriginal)) {
+                        // Sumamos las 4 horas de desfase UTC-4 para la hora nacional
+                        let horaAjustada = (horaOriginal + 4) % 24; 
+                        if (parseInt(minutos, 10) > 0 && parseInt(minutos, 10) < 10) minutos = "00";
+                        horaTexto = `${String(horaAjustada).padStart(2, '0')}:${minutos}`;
+                    }
+                }
+            }
 
             return {
                 title: f.Title || f.LinkTitle || "Evento sin título",
-                sala: salaReal,
-                hora: horaTexto,      // Ya viene con la hora de Chile lista
-                fechaStr: fechaTexto,  // Ya viene con la fecha de Chile lista
+                sala: sala,
+                hora: horaTexto,
+                fechaStr: fechaTexto,
                 esHoy: esHoy,
-                casillaTiempo: fechaCruda // De respaldo
+                id: item.id,
+                fields: f // Mandamos el objeto completo por si el HTML procesa algo extra por fuera
             };
         });
 
-        // Ordenar los eventos para que salgan los más temprano primero
+        // Ordenamiento cronológico antes de enviar el paquete completo
         eventosProcesados.sort((a, b) => `${a.fechaStr}T${a.hora}`.localeCompare(`${b.fechaStr}T${b.hora}`));
 
         res.setHeader('Cache-Control', 'no-shadow, no-store, must-revalidate');
         return res.status(200).json(eventosProcesados);
 
     } catch (error) {
-        console.error("Error en API:", error);
-        return res.status(500).json({ error: error.message });
+        console.error("Fallo crítico backend:", error);
+        return res.status(500).json({ 
+            error: "Error interno del servidor backend", 
+            mensaje: error.message 
+        });
     }
 };
