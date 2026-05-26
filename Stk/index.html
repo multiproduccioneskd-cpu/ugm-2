@@ -43,7 +43,7 @@
     <main>
         <div id="scroll-wrapper">
             <div id="events-container" class="container">
-                <div class="no-events">Cargando cartelera universitaria...</div>
+                <div class="no-events">Buscando programaciones en SharePoint...</div>
             </div>
         </div>
     </main>
@@ -72,7 +72,7 @@
             container.style.transform = `translateY(0px)`;
 
             if (container.clientHeight <= wrapper.clientHeight) {
-                rotationTimeout = setTimeout(() => { siguientePantalla(); }, 10000);
+                rotationTimeout = setTimeout(() => { siguientePantalla(); }, 12000);
             } else {
                 let currentTop = 0;
                 scrollInterval = setInterval(() => {
@@ -80,7 +80,7 @@
                         currentTop -= 1;
                         if (Math.abs(currentTop) >= (container.clientHeight - wrapper.clientHeight + 60)) {
                             clearInterval(scrollInterval);
-                            rotationTimeout = setTimeout(() => { siguientePantalla(); }, 3000);
+                            rotationTimeout = setTimeout(() => { siguientePantalla(); }, 4000);
                         } else {
                             container.style.transform = `translateY(${currentTop}px)`;
                         }
@@ -102,27 +102,55 @@
             const container = document.getElementById('events-container');
             const tituloSeccion = document.getElementById('main-title');
             
-            // Definimos el Query String según la pantalla que toque rotar
-            const parametroVista = modoVistaSemanas ? 'semana' : 'hoy';
-            tituloSeccion.innerText = modoVistaSemanas ? "PRÓXIMOS EVENTOS" : "EVENTOS DE HOY";
-
             try {
-                const response = await fetch(`https://ugm-2.vercel.app/api/cartelera?vista=${parametroVista}&nocache=${Date.now()}`);
+                // Hacemos el fetch al backend directo
+                const response = await fetch(`https://ugm-2.vercel.app/api/cartelera?nocache=${Date.now()}`);
                 if (!response.ok) throw new Error('Error API');
                 
-                const eventos = await response.json();
+                const eventosRaw = await response.json();
                 container.innerHTML = '';
                 
-                if (!eventos || eventos.length === 0 || eventos.error) {
-                    container.innerHTML = '<div class="no-events">No hay más eventos programados</div>';
+                if (!eventosRaw || eventosRaw.length === 0 || eventosRaw.error) {
+                    container.innerHTML = '<div class="no-events">No hay eventos registrados en la cartelera</div>';
                     container.classList.add('fade-in');
                     rotationTimeout = setTimeout(siguientePantalla, 8000);
                     return;
                 }
 
-                eventos.forEach(ev => {
+                const ahoraChile = new Date(new Date().toLocaleString("en-US", {timeZone: "America/Santiago"}));
+                const hoyChileString = ahoraChile.toLocaleDateString('sv-SE'); 
+                const horaChileString = ahoraChile.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+                let muestraFinal = [];
+
+                if (modoVistaSemanas) {
+                    tituloSeccion.innerText = "PRÓXIMOS EVENTOS";
+                    // Filtrar los eventos futuros de la semana
+                    muestraFinal = eventosRaw.filter(ev => !ev.esHoy && ev.fechaStr > hoyChileString);
+                } else {
+                    tituloSeccion.innerText = "EVENTOS DE HOY";
+                    // Filtrar los de hoy que aún no terminen de forma agresiva
+                    muestraFinal = eventosRaw.filter(ev => ev.esHoy && ev.hora >= horaChileString);
+                }
+
+                // Salvavidas: si la pantalla de hoy está vacía, salta de una a los Próximos Eventos
+                if (muestraFinal.length === 0 && !modoVistaSemanas) {
+                    tituloSeccion.innerText = "PRÓXIMOS EVENTOS";
+                    muestraFinal = eventosRaw.filter(ev => !ev.esHoy && ev.fechaStr > hoyChileString);
+                }
+
+                if (muestraFinal.length === 0) {
+                    container.innerHTML = '<div class="no-events">No hay más eventos programados</div>';
+                    container.classList.add('fade-in');
+                    modoVistaSemanas = !modoVistaSemanas;
+                    rotationTimeout = setTimeout(siguientePantalla, 8000);
+                    return;
+                }
+
+                container.innerHTML = '';
+                
+                muestraFinal.forEach(ev => {
                     let etiquetaDia = "Hoy";
-                    
                     if (!ev.esHoy && ev.fechaStr) {
                         try {
                             const [aaaa, mes, dd] = ev.fechaStr.split('-');
@@ -153,7 +181,7 @@
 
             } catch (error) {
                 console.error(error);
-                container.innerHTML = '<div class="no-events">⚠️ Error de conexión con el servidor backend</div>';
+                container.innerHTML = '<div class="no-events">⚠️ Sincronizando datos con SharePoint...</div>';
                 container.classList.add('fade-in');
                 rotationTimeout = setTimeout(siguientePantalla, 10000);
             }
