@@ -5,28 +5,181 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cartelera de Eventos UGM</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0b192f; color: #ffffff; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
-        header { background-color: #002060; padding: 20px 0px; display: flex; align-items: center; border-bottom: 5px solid #0056b3; width: 100%; height: 110px; position: relative; }
-        header h1 { position: absolute; left: 40px; top: 50%; transform: translateY(-50%); font-size: 2.8rem; text-transform: uppercase; letter-spacing: 1px; font-weight: 800; white-space: nowrap; z-index: 2; }
-        .logo-centro-wrapper { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; align-items: center; justify-content: center; z-index: 1; }
-        .logo-centro { height: 65px; width: auto; }
-        #right-header { position: absolute; right: 40px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; align-items: flex-end; gap: 2px; z-index: 2; }
-        #current-date { font-size: 1.6rem; color: #ffc000; font-weight: bold; text-transform: capitalize; }
-        #current-time { font-size: 2.5rem; font-weight: bold; color: #ffffff; line-height: 1; }
-        main { flex: 1; padding: 30px; position: relative; overflow: hidden; }
-        #scroll-wrapper { height: 100%; overflow-y: hidden; position: relative; }
-        .container { display: flex; flex-direction: column; gap: 20px; position: absolute; top: 0; left: 0; width: 100%; opacity: 0; transition: transform 0.3s linear, opacity 0.6s ease-in-out; }
-        .container.fade-in { opacity: 1; }
-        .event-card { background-color: #172a45; border-left: 12px solid #0056b3; border-radius: 12px; padding: 35px 45px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 10px 20px rgba(0,0,0,0.4); }
-        .event-info { display: flex; flex-direction: column; gap: 12px; flex: 1; }
-        .event-title { font-size: 2.8rem; font-weight: bold; color: #ffffff; line-height: 1.2; }
-        .event-room { font-size: 1.8rem; color: #000000; font-weight: bold; background-color: #ffa500; padding: 6px 20px; border-radius: 8px; text-transform: uppercase; box-shadow: 0 4px 8px rgba(0,0,0,0.2); width: fit-content; }
-        .event-time { font-size: 3.5rem; font-weight: 800; color: #38b6ff; background-color: #0b192f; padding: 15px 35px; border-radius: 10px; border: 3px solid #0056b3; white-space: nowrap; text-align: center; display: flex; flex-direction: column; justify-content: center; min-width: 220px; }
-        .event-day-label { font-size: 1.3rem; color: #8892b0; text-transform: uppercase; font-weight: bold; margin-bottom: 4px; letter-spacing: 1px; }
-        .badge-en-curso { color: #ff4a4a !important; animation: pulse 2s infinite; }
-        @keyframes pulse { 0% { opacity: 0.7; } 50% { opacity: 1; } 100% { opacity: 0.7; } }
-        .no-events { font-size: 2.8rem; text-align: center; color: #8892b0; margin-top: 15vh; width: 100%; }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        /* 🎨 FONDO ESTANDARIZADO CON TU NUEVO PANEL: Azul noche profundo */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0f172a;
+            color: #ffffff;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        /* 🎨 CABECERA UNIFICADA: Mismo tono Slate que los bloques del panel */
+        header {
+            background-color: #1e293b;
+            padding: 20px 0px; 
+            display: flex;
+            align-items: center;
+            border-bottom: 5px solid #38b6ff;
+            width: 100%;
+            height: 110px; 
+            position: relative;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        header h1 {
+            position: absolute;
+            left: 40px; 
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 2.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 800;
+            white-space: nowrap;
+            z-index: 2;
+        }
+        .logo-centro-wrapper {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1; 
+        }
+        .logo-centro {
+            height: 65px;
+            width: auto;
+        }
+        #right-header {
+            position: absolute;
+            right: 40px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 2px;
+            z-index: 2;
+        }
+        #current-date {
+            font-size: 1.6rem;
+            color: #ffc000;
+            font-weight: bold;
+            text-transform: capitalize;
+        }
+        #current-time {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #38b6ff; /* Celeste institucional unificado */
+            line-height: 1;
+        }
+        main {
+            flex: 1;
+            padding: 30px;
+            position: relative;
+            overflow: hidden;
+        }
+        #scroll-wrapper {
+            height: 100%;
+            overflow-y: hidden;
+            position: relative;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            opacity: 0;
+            transition: transform 0.3s linear, opacity 0.6s ease-in-out;
+        }
+        .container.fade-in {
+            opacity: 1;
+        }
+        /* 🎨 TARJETAS DE EVENTO: Ajustadas al estilo limpio del panel */
+        .event-card {
+            background-color: #1e293b;
+            border-left: 12px solid #38b6ff;
+            border-radius: 12px;
+            padding: 35px 45px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+        }
+        .event-info {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            flex: 1;
+        }
+        .event-title {
+            font-size: 2.8rem;
+            font-weight: bold;
+            color: #ffffff;
+            line-height: 1.2;
+        }
+        .event-room {
+            font-size: 1.8rem;
+            color: #000000;
+            font-weight: bold;
+            background-color: #ffa500; 
+            padding: 6px 20px;
+            border-radius: 8px;
+            text-transform: uppercase;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            width: fit-content;
+        }
+        .event-time {
+            font-size: 3.5rem;
+            font-weight: 800;
+            color: #38b6ff;
+            background-color: #0f172a;
+            padding: 15px 35px;
+            border-radius: 10px;
+            border: 3px solid #38b6ff;
+            white-space: nowrap;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-width: 220px;
+        }
+        .event-day-label {
+            font-size: 1.3rem;
+            color: #94a3b8;
+            text-transform: uppercase;
+            font-weight: bold;
+            margin-bottom: 4px;
+            letter-spacing: 1px;
+        }
+        /* 🚨 ESTILO DE EN CURSO PARPADEANTE ROJO UNIFICADO */
+        .badge-en-curso {
+            color: #ff4a4a !important; 
+            font-weight: 900 !important;
+            animation: pulse 1s infinite alternate; 
+        }
+        @keyframes pulse {
+            0% { opacity: 0.4; transform: scale(0.98); }
+            100% { opacity: 1; transform: scale(1.02); }
+        }
+        .no-events {
+            font-size: 2.8rem;
+            text-align: center;
+            color: #8892b0;
+            margin-top: 15vh;
+            width: 100%;
+        }
     </style>
 </head>
 <body>
@@ -58,6 +211,7 @@
         function updateClock() {
             const ahora = new Date();
             document.getElementById('current-time').innerText = ahora.toLocaleTimeString('es-CL', { hour12: false });
+            
             const opciones = { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Santiago' };
             let fechaTexto = ahora.toLocaleDateString('es-CL', opciones);
             document.getElementById('current-date').innerText = fechaTexto.charAt(0).toUpperCase() + fechaTexto.slice(1);
@@ -71,6 +225,7 @@
             
             const wrapper = document.getElementById('scroll-wrapper');
             const container = document.getElementById('events-container');
+            
             container.style.transform = `translateY(0px)`;
 
             if (container.clientHeight <= wrapper.clientHeight) {
@@ -112,7 +267,7 @@
                 container.innerHTML = '';
                 
                 if (!eventosRaw || eventosRaw.length === 0 || eventosRaw.error) {
-                    container.innerHTML = '<div class="no-events">No hay eventos vigentes en la cartelera</div>';
+                    container.innerHTML = '<div class="no-events">No hay eventos registrados en la cartelera</div>';
                     container.classList.add('fade-in');
                     rotationTimeout = setTimeout(siguientePantalla, 10000);
                     return;
@@ -124,41 +279,40 @@
                 const listaProcesada = [];
 
                 eventosRaw.forEach(ev => {
-                    if (ev.casillaTiempo && typeof ev.casillaTiempo === 'string') {
-                        const dateObjeto = new Date(ev.casillaTiempo);
-                        
-                        if (!isNaN(dateObjeto.getTime())) {
-                            const esTodoElDia = ev.casillaTiempo.includes("T00:00:00") || ev.casillaTiempo.includes("T02:00:00");
-                            
-                            let fechaTexto = dateObjeto.toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
-                            let horaTexto = dateObjeto.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Santiago' });
-                            
-                            if (esTodoElDia) {
-                                fechaTexto = ev.casillaTiempo.split('T')[0];
-                                horaTexto = "Todo el día";
-                            }
+                    if (ev.fechaStr && ev.hora) {
+                        let etiquetaEstado = "Hoy";
+                        let claseExtra = "";
 
-                            const esHoy = (fechaTexto === hoyChileString);
-                            let etiquetaEstado = "Hoy";
-
-                            if (esHoy && !esTodoElDia) {
-                                const horaEventoObj = new Date(dateObjeto.toLocaleString("en-US", {timeZone: "America/Santiago"}));
+                        if (ev.esHoy) {
+                            if (ev.hora !== "Todo el día") {
+                                const [h, m] = ev.hora.split(':');
+                                const horaEventoObj = new Date();
+                                horaEventoObj.setHours(parseInt(h,10), parseInt(m,10), 0);
+                                
                                 const diferenciaMinutos = (ahoraChile - horaEventoObj) / 60000;
 
-                                // Filtro dinámico original: oculta si pasaron más de 30 minutos
-                                if (diferenciaMinutos > 30) return; 
-                                if (diferenciaMinutos >= 0 && diferenciaMinutos <= 30) etiquetaEstado = "En curso";
+                                // 🚨 FILTRO STRICT: Si pasaron más de 20 minutos de su inicio, se elimina de pantalla
+                                if (diferenciaMinutos > 20) {
+                                    return; 
+                                }
+                                
+                                // 🚨 EN CURSO: Si partió y está dentro del rango de 20 min, parpadea en rojo
+                                if (diferenciaMinutos >= 0 && diferenciaMinutos <= 20) {
+                                    etiquetaEstado = "En curso";
+                                    claseExtra = "badge-en-curso";
+                                }
                             }
-
-                            listaProcesada.push({
-                                title: ev.title,
-                                sala: ev.sala,
-                                hora: horaTexto,
-                                fechaStr: fechaTexto,
-                                esHoy: esHoy,
-                                etiquetaEstado: etiquetaEstado
-                            });
                         }
+
+                        listaProcesada.push({
+                            title: ev.title,
+                            sala: ev.sala,
+                            hora: ev.hora,
+                            fechaStr: ev.fechaStr,
+                            esHoy: ev.esHoy,
+                            etiquetaEstado: etiquetaEstado,
+                            claseExtra: claseExtra
+                        });
                     }
                 });
 
@@ -185,14 +339,10 @@
                     return;
                 }
 
-                muestraFinal.sort((a, b) => `${a.fechaStr}T${a.hora}`.localeCompare(`${b.fechaStr}T${b.hora}`));
                 container.innerHTML = '';
                 
                 muestraFinal.forEach(ev => {
                     let etiquetaDia = ev.etiquetaEstado;
-                    let claseExtra = "";
-
-                    if (etiquetaDia === "En curso") claseExtra = "badge-en-curso";
                     
                     if (!ev.esHoy && ev.fechaStr) {
                         try {
@@ -212,7 +362,7 @@
                             <div class="event-room">${ev.sala}</div>
                         </div>
                         <div class="event-time">
-                            <div class="event-day-label ${claseExtra}">${etiquetaDia}</div>
+                            <div class="event-day-label ${ev.claseExtra}">${etiquetaDia}</div>
                             <div>${ev.hora}</div>
                         </div>
                     `;
@@ -224,7 +374,7 @@
 
             } catch (error) {
                 console.error(error);
-                container.innerHTML = '<div class="no-events">⚠️ Error de sincronización con el visor</div>';
+                container.innerHTML = '<div class="no-events">⚠️ Error de comunicación con la cartelera</div>';
                 container.classList.add('fade-in');
                 rotationTimeout = setTimeout(siguientePantalla, 10000);
             }
