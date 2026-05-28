@@ -67,18 +67,16 @@
             gap: 2px;
             z-index: 2;
         }
-        /* 🎨 CORRECCIÓN: Fecha del reloj en blanco como la primera imagen */
         #current-date {
             font-size: 1.6rem;
-            color: #ffffff;
+            color: #ffc000; /* Volvió al amarillo clásico */
             font-weight: bold;
             text-transform: capitalize;
         }
-        /* 🎨 CORRECCIÓN: Hora del reloj en blanco puro como me pediste */
         #current-time {
             font-size: 2.5rem;
             font-weight: bold;
-            color: #ffffff; 
+            color: #38b6ff; /* Volvió al celeste original del header */
             line-height: 1;
         }
         main {
@@ -139,10 +137,11 @@
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
             width: fit-content;
         }
+        /* 🚀 CUBO DE TIEMPO ACTUALIZADO: Cambiado a Blanco Puro según la primera imagen */
         .event-time {
             font-size: 3.5rem;
             font-weight: 800;
-            color: #38b6ff;
+            color: #ffffff; /* 🎨 CORRECCIÓN: Hora de la tarjeta en blanco puro */
             background-color: #0f172a;
             padding: 15px 35px;
             border-radius: 10px;
@@ -156,16 +155,18 @@
         }
         .event-day-label {
             font-size: 1.3rem;
-            color: #94a3b8;
+            color: #ffffff; /* 🎨 CORRECCIÓN: Fecha corta superior (Ej: LUN 1) en blanco puro */
             text-transform: uppercase;
             font-weight: bold;
             margin-bottom: 4px;
             letter-spacing: 1px;
+            opacity: 0.8; /* Da una leve jerarquía estética sin perder el blanco */
         }
         .badge-en-curso {
             color: #ff4a4a !important; 
             font-weight: 900 !important;
             animation: pulse 1s infinite alternate; 
+            opacity: 1 !important;
         }
         @keyframes pulse {
             0% { opacity: 0.4; transform: scale(0.98); }
@@ -223,7 +224,6 @@
             
             const wrapper = document.getElementById('scroll-wrapper');
             const container = document.getElementById('events-container');
-            
             container.style.transform = `translateY(0px)`;
 
             if (container.clientHeight <= wrapper.clientHeight) {
@@ -289,12 +289,12 @@
                                 
                                 const diferenciaMinutos = (ahoraChile - horaEventoObj) / 60000;
 
-                                // Regla de expiración automática: 20 minutos
+                                // Regla estricta: 20 minutos de vigencia en pantalla una vez iniciado
                                 if (diferenciaMinutos > 20) {
                                     return; 
                                 }
                                 
-                                // Estado de Alerta parpadeante roja
+                                // Estado En Curso
                                 if (diferenciaMinutos >= 0 && diferenciaMinutos <= 20) {
                                     etiquetaEstado = "En curso";
                                     claseExtra = "badge-en-curso";
