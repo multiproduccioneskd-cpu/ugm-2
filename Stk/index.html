@@ -1,3 +1,4 @@
+HTML
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -10,7 +11,6 @@
             margin: 0;
             padding: 0;
         }
-        /* 🎨 FONDO ESTANDARIZADO CON TU NUEVO PANEL: Azul noche profundo */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #0f172a;
@@ -20,7 +20,6 @@
             display: flex;
             flex-direction: column;
         }
-        /* 🎨 CABECERA UNIFICADA: Mismo tono Slate que los bloques del panel */
         header {
             background-color: #1e293b;
             padding: 20px 0px; 
@@ -69,16 +68,18 @@
             gap: 2px;
             z-index: 2;
         }
+        /* 🎨 CORRECCIÓN: Fecha del reloj en blanco como la primera imagen */
         #current-date {
             font-size: 1.6rem;
-            color: #ffc000;
+            color: #ffffff;
             font-weight: bold;
             text-transform: capitalize;
         }
+        /* 🎨 CORRECCIÓN: Hora del reloj en blanco puro como me pediste */
         #current-time {
             font-size: 2.5rem;
             font-weight: bold;
-            color: #38b6ff; /* Celeste institucional unificado */
+            color: #ffffff; 
             line-height: 1;
         }
         main {
@@ -106,7 +107,6 @@
         .container.fade-in {
             opacity: 1;
         }
-        /* 🎨 TARJETAS DE EVENTO: Ajustadas al estilo limpio del panel */
         .event-card {
             background-color: #1e293b;
             border-left: 12px solid #38b6ff;
@@ -163,7 +163,6 @@
             margin-bottom: 4px;
             letter-spacing: 1px;
         }
-        /* 🚨 ESTILO DE EN CURSO PARPADEANTE ROJO UNIFICADO */
         .badge-en-curso {
             color: #ff4a4a !important; 
             font-weight: 900 !important;
@@ -291,12 +290,12 @@
                                 
                                 const diferenciaMinutos = (ahoraChile - horaEventoObj) / 60000;
 
-                                // 🚨 FILTRO STRICT: Si pasaron más de 20 minutos de su inicio, se elimina de pantalla
+                                // Regla de expiración automática: 20 minutos
                                 if (diferenciaMinutos > 20) {
                                     return; 
                                 }
                                 
-                                // 🚨 EN CURSO: Si partió y está dentro del rango de 20 min, parpadea en rojo
+                                // Estado de Alerta parpadeante roja
                                 if (diferenciaMinutos >= 0 && diferenciaMinutos <= 20) {
                                     etiquetaEstado = "En curso";
                                     claseExtra = "badge-en-curso";
